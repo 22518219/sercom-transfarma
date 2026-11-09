@@ -338,16 +338,17 @@ export default function LogsPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Asunto / Referencia del Correo *</label>
-                <input
-                  type="text"
-                  placeholder="Ej: Solicitud de retiro urgente pedido #4589"
-                  value={usendSubject}
-                  onChange={(e) => setUsendSubject(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
-                  required
-                />
-              </div>
+  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+    Enlace de Gmail o Archivo (.eml / .pdf)
+  </label>
+  <input
+    type="url"
+    placeholder="https://mail.google.com/mail/u/0/#search/..."
+    value={emailSubjectUrl}
+    onChange={(e) => setEmailSubjectUrl(e.target.value)}
+    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+  />
+</div>
 
               {/* ZONA DE ARRASTRAR Y SOLTAR EL CORREO (DRAG AND DROP) */}
               <div>
