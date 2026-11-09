@@ -34,8 +34,14 @@ export default function AdminPortfolioPage() {
   const [assignments, setAssignments] = useState<AssignmentDetail[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Estado para el filtro por ejecutiva
+  // Estado filtro ejecutiva
   const [filterExecId, setFilterExecId] = useState<string>('ALL')
+
+  // Formulario nuevo cliente
+  const [newCompanyName, setNewCompanyName] = useState('')
+  const [newContactPerson, setNewContactPerson] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [newPhone, setNewPhone] = useState('')
 
   // Formulario asignación
   const [selectedExec, setSelectedExec] = useState('')
@@ -90,10 +96,40 @@ export default function AdminPortfolioPage() {
 
   const formatCode = (code: number) => String(code).padStart(3, '0')
 
-  // Filtrado dinámico de asignaciones
-  const filteredAssignments = filterExecId === 'ALL'
-    ? assignments
-    : assignments.filter(item => item.user_id === filterExecId)
+  // Crear nuevo cliente mandante
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newCompanyName.trim()) {
+      alert('Ingresa la razón social del cliente')
+      return
+    }
+
+    // Obtener el correlativo máximo actual para asignar code + 1
+    const nextCode = clients.length > 0 ? Math.max(...clients.map(c => c.code || 0)) + 1 : 1
+
+    const { error } = await supabase
+      .from('clients')
+      .insert([
+        {
+          code: nextCode,
+          company_name: newCompanyName.trim(),
+          contact_person: newContactPerson.trim(),
+          email: newEmail.trim(),
+          phone: newPhone.trim()
+        }
+      ])
+
+    if (error) {
+      alert('Error al agregar mandante: ' + error.message)
+    } else {
+      alert(`Mandante registrado con éxito. Código asignado: [${formatCode(nextCode)}]`)
+      setNewCompanyName('')
+      setNewContactPerson('')
+      setNewEmail('')
+      setNewPhone('')
+      fetchData()
+    }
+  }
 
   // Asignar cliente a ejecutiva
   const handleAssignClient = async (e: React.FormEvent) => {
@@ -103,13 +139,11 @@ export default function AdminPortfolioPage() {
       return
     }
 
-    // Eliminar asignación previa del cliente si existe
     await supabase
       .from('user_clients')
       .delete()
       .eq('client_id', selectedClient)
 
-    // Crear la nueva asignación
     const { error } = await supabase
       .from('user_clients')
       .insert([{ user_id: selectedExec, client_id: selectedClient }])
@@ -124,7 +158,7 @@ export default function AdminPortfolioPage() {
     }
   }
 
-  // Eliminar asignación
+  // Desvincular cliente
   const handleUnassign = async (assignmentId: string) => {
     if (!confirm('¿Deseas desvincular este cliente de la ejecutiva?')) return
 
@@ -140,15 +174,20 @@ export default function AdminPortfolioPage() {
     }
   }
 
-  // Función para exportar a PDF (Impresión nativa estilizada)
+  // Exportar PDF nativo
   const handleExportPDF = () => {
     window.print()
   }
 
+  // Filtrado de asignaciones
+  const filteredAssignments = filterExecId === 'ALL'
+    ? assignments
+    : assignments.filter(item => item.user_id === filterExecId)
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0b0f17]">
-        <p className="text-slate-400 font-medium text-xs tracking-wider uppercase">Cargando Cartera de Clientes...</p>
+        <p className="text-slate-400 font-medium text-xs tracking-wider uppercase">Cargando Administración de Cartera...</p>
       </div>
     )
   }
@@ -160,8 +199,8 @@ export default function AdminPortfolioPage() {
         {/* Encabezado */}
         <div className="flex justify-between items-center bg-[#121824] p-4 rounded-xl border border-slate-800/60 shadow-lg print:hidden">
           <div>
-            <h1 className="text-base font-bold text-white tracking-tight">Administración de Cartera y Asignaciones</h1>
-            <p className="text-xs text-slate-400">Visualización general de ejecutivas y sus clientes corporativos asignados</p>
+            <h1 className="text-base font-bold text-white tracking-tight">Administración de Mandantes y Cartera</h1>
+            <p className="text-xs text-slate-400">Creación de mandantes, asignaciones a ejecutivas e historial de cartera</p>
           </div>
           <div className="flex items-center space-x-3">
             <button
@@ -180,66 +219,136 @@ export default function AdminPortfolioPage() {
           </div>
         </div>
 
-        {/* Panel Formulario Asignación (Oculto en PDF) */}
-        <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4 print:hidden">
-          <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Asignar Cliente a Ejecutiva</h2>
-          <form onSubmit={handleAssignClient} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cliente Corporativo</label>
-              <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
-                required
-              >
-                <option value="">-- Selecciona un cliente --</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    [{formatCode(c.code)}] {c.company_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* CONTENEDOR DE FORMULARIOS (CREACIÓN Y ASIGNACIÓN) - OCULTO EN IMPRESIÓN */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:hidden">
+          
+          {/* Formulario 1: Registrar Nuevo Mandante */}
+          <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+            <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
+              <span>🏢</span>
+              <span>Registrar Nuevo Cliente / Mandante</span>
+            </h2>
+            
+            <form onSubmit={handleCreateClient} className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre / Razón Social *</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Laboratorio X S.A."
+                  value={newCompanyName}
+                  onChange={(e) => setNewCompanyName(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ejecutiva Encargada</label>
-              <select
-                value={selectedExec}
-                onChange={(e) => setSelectedExec(e.target.value)}
-                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
-                required
-              >
-                <option value="">-- Selecciona una ejecutiva --</option>
-                {executives.map((exec) => (
-                  <option key={exec.id} value={exec.id}>
-                    {exec.name} ({exec.email})
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Persona Contacto</label>
+                  <input
+                    type="text"
+                    placeholder="Contacto"
+                    value={newContactPerson}
+                    onChange={(e) => setNewContactPerson(e.target.value)}
+                    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Correo Electrónico</label>
+                  <input
+                    type="email"
+                    placeholder="correo@cliente.cl"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Teléfono</label>
+                  <input
+                    type="text"
+                    placeholder="+56 9..."
+                    value={newPhone}
+                    onChange={(e) => setNewPhone(e.target.value)}
+                    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition"
-            >
-              Guardar Asignación
-            </button>
-          </form>
+              <button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition mt-2"
+              >
+                + Crear Mandante
+              </button>
+            </form>
+          </div>
+
+          {/* Formulario 2: Asignar Cliente a Ejecutiva */}
+          <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+            <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center space-x-2">
+              <span>🔗</span>
+              <span>Asignar Cliente a Ejecutiva</span>
+            </h2>
+
+            <form onSubmit={handleAssignClient} className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Seleccionar Cliente / Mandante *</label>
+                <select
+                  value={selectedClient}
+                  onChange={(e) => setSelectedClient(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                  required
+                >
+                  <option value="">-- Selecciona un mandante ({clients.length} disponibles) --</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      [{formatCode(c.code)}] {c.company_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ejecutiva Encargada *</label>
+                <select
+                  value={selectedExec}
+                  onChange={(e) => setSelectedExec(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                  required
+                >
+                  <option value="">-- Selecciona una ejecutiva --</option>
+                  {executives.map((exec) => (
+                    <option key={exec.id} value={exec.id}>
+                      {exec.name} ({exec.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition mt-2"
+              >
+                Guardar Asignación
+              </button>
+            </form>
+          </div>
+
         </div>
 
-        {/* ÁREA IMPRIMIBLE / TABLA PRINCIPAL DE ASIGNACIONES */}
+        {/* ÁREA IMPRIMIBLE / TABLA DE ASIGNACIONES */}
         <div ref={printRef} className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4 print:bg-white print:text-black print:border-none print:shadow-none">
           
-          {/* Título de Impresión (Solo Visible en PDF) */}
+          {/* Header PDF */}
           <div className="hidden print:block mb-4 border-b pb-2">
             <h1 className="text-lg font-bold text-black">SERCOM-TRANSFARMA — REPORTE DE CARTERA Y EJECUTIVAS</h1>
             <p className="text-xs text-gray-600">Fecha de exportación: {new Date().toLocaleDateString('es-CL')}</p>
           </div>
 
-          {/* Barra de Filtros y Totales */}
+          {/* Filtro y Totales */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/60 pb-4 print:border-gray-300">
             
-            {/* Selector de Filtro por Ejecutiva */}
             <div className="flex items-center space-x-3 w-full sm:w-auto print:hidden">
               <label className="text-xs font-bold text-indigo-400 uppercase tracking-wider whitespace-nowrap">
                 Filtrar Ejecutiva:
@@ -263,12 +372,12 @@ export default function AdminPortfolioPage() {
 
             <div className="flex items-center space-x-2">
               <span className="bg-indigo-950/80 text-indigo-400 border border-indigo-800/60 text-[10px] font-bold px-2.5 py-0.5 rounded-full print:bg-gray-100 print:text-gray-800 print:border-gray-300">
-                Mostrando: {filteredAssignments.length} Clientes Asignados
+                {filteredAssignments.length} Clientes Mostrados / {clients.length} Total Registrados
               </span>
             </div>
           </div>
 
-          {/* Tabla de Resultados */}
+          {/* Tabla */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-300 divide-y divide-slate-800/80 print:divide-gray-300 print:text-black">
               <thead className="bg-[#1a2232] text-slate-400 font-bold uppercase text-[10px] tracking-wider print:bg-gray-100 print:text-black">
