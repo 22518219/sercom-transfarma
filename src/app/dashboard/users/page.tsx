@@ -12,11 +12,10 @@ interface UserProfile {
 }
 
 export default function UsersAdminPage() {
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
   const [profiles, setProfiles] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Campos formulario
+  // Campos del formulario
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -51,9 +50,7 @@ export default function UsersAdminPage() {
       return
     }
 
-    setCurrentUserRole('admin')
-
-    // Cargar listado de usuarios y perfiles
+    // Cargar listado de perfiles
     const { data: allProfiles } = await supabase
       .from('profiles')
       .select('*')
@@ -63,17 +60,15 @@ export default function UsersAdminPage() {
     setLoading(false)
   }
 
-  // Crear nuevo usuario
+  // Crear usuario
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password || !name) {
-      alert('Por favor completa todos los campos requeridos.')
+      alert('Completa todos los campos requeridos.')
       return
     }
 
     setLoading(true)
-
-    // Crear cliente temporal para no perder la sesión de admin actual
     const tempSupabase = createClient()
 
     const { data: authData, error: authError } = await tempSupabase.auth.signUp({
@@ -89,22 +84,14 @@ export default function UsersAdminPage() {
     }
 
     if (authData.user) {
-      // Guardar perfil en la tabla profiles
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert([
-          {
-            id: authData.user.id,
-            email,
-            name,
-            role
-          }
-        ])
+        .upsert([{ id: authData.user.id, email, name, role }])
 
       if (profileError) {
-        alert('Error al guardar el perfil: ' + profileError.message)
+        alert('Error al guardar perfil: ' + profileError.message)
       } else {
-        alert(`Usuario "${name}" creado exitosamente con perfil [${role.toUpperCase()}].`)
+        alert(`Usuario "${name}" registrado como [${role.toUpperCase()}].`)
         setName('')
         setEmail('')
         setPassword('')
@@ -127,11 +114,11 @@ export default function UsersAdminPage() {
     <div className="min-h-screen bg-[#0b0f17] text-slate-200 p-6 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* Header */}
+        {/* Encabezado */}
         <div className="flex justify-between items-center bg-[#121824] p-4 rounded-xl border border-slate-800/60 shadow-lg">
           <div>
             <h1 className="text-base font-bold text-white tracking-tight">Administración de Usuarios y Perfiles</h1>
-            <p className="text-xs text-slate-400">Creación de usuarios y control de accesos (`admin` / `ejecutiva`)</p>
+            <p className="text-xs text-slate-400">Creación de usuarios con accesos (Administrador / Ejecutiva)</p>
           </div>
           <button
             onClick={() => router.push('/dashboard')}
@@ -141,10 +128,10 @@ export default function UsersAdminPage() {
           </button>
         </div>
 
-        {/* Formulario de Creación */}
+        {/* Formulario */}
         <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
-          <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center space-x-2">
-            <span>👤</span>
+          <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center space-x-2">
+            <span>🔐</span>
             <span>Crear Nuevo Usuario</span>
           </h2>
 
@@ -156,7 +143,7 @@ export default function UsersAdminPage() {
                 placeholder="Ej: Paula Venegas"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
                 required
               />
             </div>
@@ -168,7 +155,7 @@ export default function UsersAdminPage() {
                 placeholder="usuario@transfarma.cl"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
                 required
               />
             </div>
@@ -180,7 +167,7 @@ export default function UsersAdminPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
                 required
               />
             </div>
@@ -190,7 +177,7 @@ export default function UsersAdminPage() {
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'admin' | 'ejecutiva')}
-                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
               >
                 <option value="ejecutiva">Ejecutiva</option>
                 <option value="admin">Administrador (Admin)</option>
@@ -200,7 +187,7 @@ export default function UsersAdminPage() {
             <div className="lg:col-span-4 flex justify-end">
               <button
                 type="submit"
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 px-6 rounded-lg text-xs shadow transition"
+                className="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 px-6 rounded-lg text-xs shadow transition"
               >
                 + Registrar Usuario
               </button>
@@ -208,7 +195,7 @@ export default function UsersAdminPage() {
           </form>
         </div>
 
-        {/* Listado de Usuarios */}
+        {/* Listado */}
         <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
           <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Listado de Usuarios Registrados</h2>
           <div className="overflow-x-auto">
