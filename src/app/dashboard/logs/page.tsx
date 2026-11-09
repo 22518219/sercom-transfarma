@@ -52,6 +52,7 @@ export default function LogsPage() {
   const [usendFile, setUsendFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
+  const [parsingEmail, setParsingEmail] = useState(false)
 
   // Parte 3: Filtro de Gráfico Usend
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'quarter' | 'semester' | 'year'>('month')
@@ -110,6 +111,54 @@ export default function LogsPage() {
   }
 
   const formatCode = (code?: number) => code ? String(code).padStart(3, '0') : '---'
+
+  // FUNCIÓN PARA EXTRAER ASUNTO, FECHA Y HORA DESDE EL ARCHIVO DE CORREO
+  const extractEmailMetadata = (file: File) => {
+    setParsingEmail(true)
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      const content = e.target?.result as string
+      if (!content) {
+        setParsingEmail(false)
+        return
+      }
+
+      // 1. Extraer Asunto (Subject)
+      const subjectMatch = content.match(/^Subject:\s*(.*)$/im)
+      if (subjectMatch && subjectMatch[1]) {
+        let extractedSubject = subjectMatch[1].trim()
+        // Decodificar si el asunto viene codificado en UTF-8/MIME
+        if (extractedSubject.includes('=?utf-8?')) {
+          extractedSubject = extractedSubject.replace(/=\?utf-8\?[QB]\?(.*?)\?=/gi, '$1')
+        }
+        setUsendSubject(extractedSubject)
+      } else {
+        // Fallback al nombre del archivo si no encuentra cabecera de Subject
+        setUsendSubject(file.name.replace(/\.[^/.]+$/, ""))
+      }
+
+      // 2. Extraer Fecha y Hora (Date)
+      const dateMatch = content.match(/^Date:\s*(.*)$/im)
+      if (dateMatch && dateMatch[1]) {
+        const parsedDate = new Date(dateMatch[1].trim())
+        if (!isNaN(parsedDate.getTime())) {
+          const formattedDate = parsedDate.toISOString().split('T')[0]
+          const formattedTime = parsedDate.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+          setUsendDate(formattedDate)
+          setUsendTime(formattedTime)
+        }
+      }
+
+      setParsingEmail(false)
+    }
+
+    reader.onerror = () => setParsingEmail(false)
+
+    // Leer los primeros KB del archivo (suficiente para escanear los headers de correo)
+    const blobHeader = file.slice(0, 100000)
+    reader.readAsText(blobHeader)
+  }
 
   // DESCARGA DE EXCEL MODERNO MULTI-PESTAÑA (.XLS)
   const handleExportExcel = () => {
@@ -283,10 +332,7 @@ export default function LogsPage() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0]
       setUsendFile(droppedFile)
-      
-      if (!usendSubject) {
-        setUsendSubject(droppedFile.name.replace(/\.[^/.]+$/, ""))
-      }
+      extractEmailMetadata(droppedFile)
     }
   }
 
@@ -392,7 +438,7 @@ export default function LogsPage() {
     }).length
   }
 
-  // CÁLCULOS ESTADÍSTICOS DASHBOARD DE GESTIONES (CLIENTES Y USEND)
+  // CÁLCULOS ESTADÍSTICOS DASHBOARD DE GESTIONES
   const getLogsByExecutive = () => {
     const map: Record<string, number> = {}
     logs.forEach(l => {
@@ -444,7 +490,6 @@ export default function LogsPage() {
           </div>
 
           <div className="flex items-center space-x-3">
-            {/* Pestañas Submódulos */}
             <div className="flex bg-[#1a2232] p-1 rounded-lg border border-slate-700/60">
               <button
                 onClick={() => setActiveTab('bitacora')}
@@ -530,14 +575,69 @@ export default function LogsPage() {
                 </form>
               </div>
 
-              {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND */}
+              {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND CON EXTRACCIÓN AUTO */}
               <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
-                <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
-                  <span>2️⃣</span>
-                  <span>Registro de Solicitudes a USEND</span>
-                </h2>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
+                    <span>2️⃣</span>
+                    <span>Registro de Solicitudes a USEND</span>
+                  </h2>
+                  {parsingEmail && (
+                    <span className="text-[10px] text-amber-400 animate-pulse font-semibold">
+                      ⚡ Obteniendo datos del correo...
+                    </span>
+                  )}
+                </div>
 
                 <form onSubmit={handleSaveUsendRequest} className="space-y-4">
+                  {/* ZONA DE ARRASTRAR Y SOLTAR CON AUTO-COMPLETADO */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                      Adjuntar o Arrastrar Correo (.eml descargado, .msg, .pdf)
+                    </label>
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition ${
+                        isDragging
+                          ? 'border-emerald-400 bg-emerald-950/20'
+                          : usendFile
+                          ? 'border-emerald-500/80 bg-[#1a2232]'
+                          : 'border-slate-700/80 hover:border-slate-600 bg-[#121824]'
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        id="file-upload"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0]
+                            setUsendFile(file)
+                            extractEmailMetadata(file)
+                          }
+                        }}
+                      />
+                      <label htmlFor="file-upload" className="cursor-pointer space-y-1 block">
+                        {usendFile ? (
+                          <div className="space-y-1">
+                            <span className="text-lg">📧</span>
+                            <p className="text-xs font-bold text-emerald-400 truncate">{usendFile.name}</p>
+                            <p className="text-[10px] text-slate-400">{(usendFile.size / 1024).toFixed(1)} KB - Datos extraídos automáticamente</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <span className="text-lg">📥</span>
+                            <p className="text-xs font-medium text-slate-300">
+                              Arrastra el correo (.eml) para autocompletar Asunto, Fecha y Hora
+                            </p>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha *</label>
@@ -584,52 +684,6 @@ export default function LogsPage() {
                       onChange={(e) => setEmailSubjectUrl(e.target.value)}
                       className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                      O Adjuntar Archivo (.eml descargado, .pdf, .msg)
-                    </label>
-                    <div
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition ${
-                        isDragging
-                          ? 'border-emerald-400 bg-emerald-950/20'
-                          : usendFile
-                          ? 'border-emerald-500/80 bg-[#1a2232]'
-                          : 'border-slate-700/80 hover:border-slate-600 bg-[#121824]'
-                      }`}
-                    >
-                      <input
-                        type="file"
-                        id="file-upload"
-                        className="hidden"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            setUsendFile(e.target.files[0])
-                            if (!usendSubject) setUsendSubject(e.target.files[0].name.replace(/\.[^/.]+$/, ""))
-                          }
-                        }}
-                      />
-                      <label htmlFor="file-upload" className="cursor-pointer space-y-1 block">
-                        {usendFile ? (
-                          <div className="space-y-1">
-                            <span className="text-lg">📧</span>
-                            <p className="text-xs font-bold text-emerald-400 truncate">{usendFile.name}</p>
-                            <p className="text-[10px] text-slate-400">{(usendFile.size / 1024).toFixed(1)} KB - Listo para subir</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <span className="text-lg">📥</span>
-                            <p className="text-xs font-medium text-slate-300">
-                              Haz clic para adjuntar archivo descargado (.eml / .pdf)
-                            </p>
-                          </div>
-                        )}
-                      </label>
-                    </div>
                   </div>
 
                   <button
