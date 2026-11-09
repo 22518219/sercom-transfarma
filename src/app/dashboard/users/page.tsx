@@ -37,14 +37,27 @@ export default function UsersAdminPage() {
       return
     }
 
-    // Verificar si el usuario actual es admin
-    const { data: profile } = await supabase
+    // Buscar perfil por ID primero, y si no por EMAIL
+    let { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .maybeSingle()
 
-    if (!profile || profile.role !== 'admin') {
+    if (!profile && user.email) {
+      const { data: profileByEmail } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', user.email)
+        .maybeSingle()
+
+      profile = profileByEmail
+    }
+
+    const currentRole = profile?.role?.toLowerCase()
+
+    // Permitir acceso si el rol es admin o si el usuario es eayala@transfarma.cl
+    if (currentRole !== 'admin' && user.email !== 'eayala@transfarma.cl') {
       alert('Acceso restringido. Este módulo solo es visible para Administradores.')
       router.push('/dashboard')
       return
