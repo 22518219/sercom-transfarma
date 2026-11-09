@@ -6,30 +6,49 @@ import { createClient } from '../../../lib/supabase'
 
 interface Client {
   id: string
+  code: number
   company_name: string
-  rut: string
 }
 
 interface LogEntry {
   id: string
   created_at: string
-  type: 'telefono' | 'correo'
-  notes: string
-  clients: {
-    company_name: string
-  } | null
+  client_id: string
+  executive_name: string
+  detail: string
+  client?: Client
 }
 
-export default function BitacoraPage() {
+interface UsendEntry {
+  id: string
+  created_at: string
+  request_date: string
+  request_time: string
+  executive_name: string
+  email_subject?: string
+  file_url?: string
+}
+
+export default function LogsPage() {
   const [assignedClients, setAssignedClients] = useState<Client[]>([])
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [usendRequests, setUsendRequests] = useState<UsendEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentUserName, setCurrentUserName] = useState('')
 
-  // Campos del formulario
+  // Parte 1: Estados Registro Cliente
   const [selectedClient, setSelectedClient] = useState('')
-  const [type, setType] = useState<'telefono' | 'correo'>('telefono')
-  const [notes, setNotes] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [clientDetail, setClientDetail] = useState('')
+
+  // Parte 2: Estados Registro Usend
+  const [usendDate, setUsendDate] = useState(new Date().toISOString().split('T')[0])
+  const [usendTime, setUsendTime] = useState(new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }))
+  const [usendSubject, setUsendSubject] = useState('')
+  const [usendFile, setUsendFile] = useState<File | null>(null)
+  const [uploadingFile, setUploadingFile] = useState(false)
+
+  // Parte 3: Filtro de Gráfico
+  const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'quarter' | 'semester' | 'year'>('month')
 
   const router = useRouter()
   const supabase = createClient()
@@ -41,236 +60,403 @@ export default function BitacoraPage() {
   const fetchInitialData = async () => {
     setLoading(true)
 
-    // 1. Obtener usuario actual
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       router.push('/login')
       return
     }
 
-    // 2. Cargar la cartera asignada a esta ejecutiva desde user_clients
-    const { data: userClientsData, error: ucError } = await supabase
-      .from('user_clients')
-      .select('client_id, clients(id, company_name, rut)')
-      .eq('user_id', user.id)
+    // Perfil usuario activo
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('name, role')
+      .eq('id', user.id)
+      .maybeSingle()
 
-    if (ucError) {
-      console.error('Error al cargar cartera:', ucError)
-    } else if (userClientsData) {
-      // Extraer los clientes de la consulta relacional
-      const clientList = userClientsData
-        .map((uc: any) => uc.clients)
-        .filter(Boolean) as Client[]
-      setAssignedClients(clientList)
-    }
+    const userName = profile?.name || user.email || 'Ejecutiva'
+    setCurrentUserName(userName)
 
-    // 3. Cargar las gestiones (bitácora) registradas por este usuario
-    const { data: logsData, error: logsError } = await supabase
+    // Cargar clientes
+    const { data: clientsData } = await supabase
+      .from('clients')
+      .select('id, code, company_name')
+      .order('code', { ascending: true })
+
+    if (clientsData) setAssignedClients(clientsData as Client[])
+
+    // Cargar gestiones de clientes
+    const { data: logsData } = await supabase
       .from('logs')
-      .select('id, created_at, type, notes, clients(company_name)')
-      .eq('user_id', user.id)
+      .select('*, client:clients(id, code, company_name)')
       .order('created_at', { ascending: false })
 
-    if (logsError) {
-      console.error('Error al cargar bitácora:', logsError)
-    } else if (logsData) {
-      setLogs(logsData as unknown as LogEntry[])
-    }
+    if (logsData) setLogs(logsData as unknown as LogEntry[])
+
+    // Cargar gestiones de Usend
+    const { data: usendData } = await supabase
+      .from('usend_requests')
+      .select('*')
+      .order('request_date', { ascending: false })
+
+    if (usendData) setUsendRequests(usendData as UsendEntry[])
 
     setLoading(false)
   }
 
-  // Registrar nueva gestión en la bitácora
-  const handleCreateLog = async (e: React.FormEvent) => {
+  const formatCode = (code?: number) => code ? String(code).padStart(3, '0') : '---'
+
+  // GUARDAR PARTE 1: GESTIÓN DE CLIENTE
+  const handleSaveClientLog = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedClient || !notes.trim()) {
-      alert('Por favor selecciona un cliente e ingresa el detalle de la gestión.')
+    if (!selectedClient || !clientDetail.trim()) {
+      alert('Selecciona un cliente e ingresa el detalle de la gestión.')
       return
     }
 
-    setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      router.push('/login')
-      return
-    }
 
     const { error } = await supabase
       .from('logs')
       .insert([
         {
-          user_id: user.id,
           client_id: selectedClient,
-          type,
-          notes,
-        },
+          user_id: user?.id,
+          executive_name: currentUserName,
+          detail: clientDetail.trim()
+        }
       ])
 
     if (error) {
-      alert('Error al guardar la gestión: ' + error.message)
+      alert('Error al guardar gestión: ' + error.message)
     } else {
-      setNotes('')
+      alert('Gestión de cliente registrada con éxito.')
       setSelectedClient('')
+      setClientDetail('')
       fetchInitialData()
     }
-    setSubmitting(false)
+  }
+
+  // GUARDAR PARTE 2: REGISTRO USEND (CON SUBIDA DE CORREO/ARCHIVO)
+  const handleSaveUsendRequest = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!usendDate || !usendTime) {
+      alert('Ingresa fecha y hora de la solicitud.')
+      return
+    }
+
+    setUploadingFile(true)
+    let fileUrl = ''
+
+    // Subir archivo a Supabase Storage si adjuntó correo
+    if (usendFile) {
+      const fileExt = usendFile.name.split('.').pop()
+      const fileName = `usend_${Date.now()}.${fileExt}`
+      const { data: storageData, error: storageError } = await supabase
+        .storage
+        .from('usend_emails')
+        .upload(fileName, usendFile)
+
+      if (!storageError && storageData) {
+        const { data: urlData } = supabase.storage.from('usend_emails').getPublicUrl(fileName)
+        fileUrl = urlData.publicUrl
+      }
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error } = await supabase
+      .from('usend_requests')
+      .insert([
+        {
+          request_date: usendDate,
+          request_time: usendTime,
+          user_id: user?.id,
+          executive_name: currentUserName,
+          email_subject: usendSubject.trim() || 'Solicitud a Usend',
+          file_url: fileUrl || null
+        }
+      ])
+
+    setUploadingFile(false)
+
+    if (error) {
+      alert('Error al guardar solicitud Usend: ' + error.message)
+    } else {
+      alert('Solicitud a Usend registrada correctamente.')
+      setUsendSubject('')
+      setUsendFile(null)
+      fetchInitialData()
+    }
+  }
+
+  // CÁLCULO PARTE 3: ESTADÍSTICAS USEND
+  const getFilteredUsendCount = () => {
+    const now = new Date()
+    return usendRequests.filter(req => {
+      const reqDate = new Date(req.request_date)
+      const diffTime = Math.abs(now.getTime() - reqDate.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+      if (timeFilter === 'day') return diffDays <= 1
+      if (timeFilter === 'week') return diffDays <= 7
+      if (timeFilter === 'month') return diffDays <= 30
+      if (timeFilter === 'quarter') return diffDays <= 90
+      if (timeFilter === 'semester') return diffDays <= 180
+      if (timeFilter === 'year') return diffDays <= 365
+      return true
+    }).length
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <p className="text-gray-600 font-medium">Cargando Bitácora Diaria...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#0b0f17]">
+        <p className="text-slate-400 font-medium text-xs tracking-wider uppercase">Cargando Bitácora y Estadísticas Usend...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 text-gray-900">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#0b0f17] text-slate-200 p-6 font-sans space-y-8">
+      <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Encabezado */}
-        <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow">
+        {/* ENCABEZADO */}
+        <div className="flex justify-between items-center bg-[#121824] p-4 rounded-xl border border-slate-800/60 shadow-lg">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Bitácora Diaria de Gestiones</h1>
-            <p className="text-sm text-gray-500">Registra y revisa tus interacciones diarias con la cartera asignada</p>
+            <h1 className="text-base font-bold text-white tracking-tight">Bitácora de Gestiones y Control Usend</h1>
+            <p className="text-xs text-slate-400">Registro diario de interacciones corporativas y solicitudes a Usend</p>
           </div>
           <button
             onClick={() => router.push('/dashboard')}
-            className="bg-gray-600 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded transition"
+            className="bg-[#1a2232] hover:bg-slate-700 text-slate-300 text-xs font-semibold px-4 py-2 rounded-lg border border-slate-700/60 transition"
           >
-            Volver al Dashboard
+            ← Volver al Dashboard
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* PARTE 1 Y PARTE 2 EN 2 COLUMNAS */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Formulario de Registro de Gestiones */}
-          <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow space-y-4">
-            <h2 className="text-lg font-bold text-blue-600">Nueva Gestión</h2>
-            
-            <form onSubmit={handleCreateLog} className="space-y-4">
+          {/* PARTE 1: REGISTRO DE GESTIONES POR CLIENTE */}
+          <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+            <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center space-x-2">
+              <span>1️⃣</span>
+              <span>Registro de Gestión por Ejecutiva</span>
+            </h2>
+
+            <form onSubmit={handleSaveClientLog} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Cliente Asignado
-                </label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Seleccionar Cliente / Mandante *</label>
                 <select
                   value={selectedClient}
                   onChange={(e) => setSelectedClient(e.target.value)}
-                  className="w-full p-2 border rounded text-sm bg-white"
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
                   required
                 >
                   <option value="">-- Selecciona un cliente --</option>
-                  {assignedClients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.company_name} ({client.rut})
+                  {assignedClients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      [{formatCode(c.code)}] {c.company_name}
                     </option>
                   ))}
                 </select>
-                {assignedClients.length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    No tienes clientes asignados aún. Solicita asignación al Administrador.
-                  </p>
-                )}
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Tipo de Contacto
-                </label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center text-sm cursor-pointer">
-                    <input
-                      type="radio"
-                      name="type"
-                      value="telefono"
-                      checked={type === 'telefono'}
-                      onChange={() => setType('telefono')}
-                      className="mr-2"
-                    />
-                    📞 Teléfono
-                  </label>
-                  <label className="flex items-center text-sm cursor-pointer">
-                    <input
-                      type="radio"
-                      name="type"
-                      value="correo"
-                      checked={type === 'correo'}
-                      onChange={() => setType('correo')}
-                      className="mr-2"
-                    />
-                    ✉️ Correo
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Resumen de la Gestión
-                </label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Breve Detalle de la Gestión *</label>
                 <textarea
                   rows={4}
+                  placeholder="Escribe un resumen conciso de lo gestionado con el cliente..."
+                  value={clientDetail}
+                  onChange={(e) => setClientDetail(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500 resize-none"
                   required
-                  placeholder="Escribe un breve detalle de lo conversado o acordado con el cliente..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full p-2 border rounded text-sm"
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={submitting}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded text-sm transition disabled:opacity-50"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition"
               >
-                {submitting ? 'Guardando...' : 'Registrar Gestión'}
+                + Registrar Gestión de Cliente
               </button>
             </form>
           </div>
 
-          {/* Historial de Gestiones Diarias */}
-          <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow space-y-4">
-            <h2 className="text-lg font-bold text-gray-800">Historial de Registros</h2>
+          {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND */}
+          <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+            <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
+              <span>2️⃣</span>
+              <span>Registro de Solicitudes a USEND</span>
+            </h2>
 
+            <form onSubmit={handleSaveUsendRequest} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha *</label>
+                  <input
+                    type="date"
+                    value={usendDate}
+                    onChange={(e) => setUsendDate(e.target.value)}
+                    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Hora *</label>
+                  <input
+                    type="time"
+                    value={usendTime}
+                    onChange={(e) => setUsendTime(e.target.value)}
+                    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Asunto / Referencia del Correo</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Solicitud de retiro urgente pedido #4589"
+                  value={usendSubject}
+                  onChange={(e) => setUsendSubject(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Adjuntar Correo / Comprobante (.eml, .pdf, .msg, imagen)</label>
+                <input
+                  type="file"
+                  onChange={(e) => setUsendFile(e.target.files ? e.target.files[0] : null)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2 focus:outline-none focus:border-emerald-500 file:bg-slate-800 file:text-slate-300 file:border-0 file:rounded file:px-2 file:py-1 file:mr-2 file:text-xs cursor-pointer"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={uploadingFile}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition disabled:opacity-50"
+              >
+                {uploadingFile ? 'Subiendo Archivo...' : '+ Registrar Solicitud Usend'}
+              </button>
+            </form>
+          </div>
+
+        </div>
+
+        {/* PARTE 3: GRÁFICA ESTADÍSTICA Y DASHBOARD DE GESTIONES USEND */}
+        <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/60 pb-4">
+            <div>
+              <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center space-x-2">
+                <span>3️⃣</span>
+                <span>Gráfica Estadísticas Usend</span>
+              </h2>
+              <p className="text-[11px] text-slate-400">Consolidado de solicitudes enviadas a Usend por periodo de tiempo</p>
+            </div>
+
+            {/* Selector Filtro de Tiempo */}
+            <div className="flex items-center space-x-1 bg-[#1a2232] p-1 rounded-lg border border-slate-700/60">
+              {(['day', 'week', 'month', 'quarter', 'semester', 'year'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTimeFilter(t)}
+                  className={`text-[10px] font-bold px-3 py-1.5 rounded-md capitalize transition ${
+                    timeFilter === t
+                      ? 'bg-amber-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {t === 'day' ? 'Día' : t === 'week' ? 'Semana' : t === 'month' ? 'Mes' : t === 'quarter' ? 'Trimestre' : t === 'semester' ? 'Semestre' : 'Año'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* KPI Y GRÁFICO VISUAL NATIVO */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            
+            {/* KPI Card */}
+            <div className="bg-[#121824] p-6 rounded-xl border border-slate-800/60 text-center">
+              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">
+                Total Solicitudes ({timeFilter.toUpperCase()})
+              </span>
+              <span className="text-5xl font-extrabold text-white">
+                {getFilteredUsendCount()}
+              </span>
+              <p className="text-[11px] text-slate-400 mt-2">Registros acumulados en el periodo seleccionado</p>
+            </div>
+
+            {/* Barra Visual Proporcional */}
+            <div className="md:col-span-2 bg-[#121824] p-6 rounded-xl border border-slate-800/60 space-y-4">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-300">Volumen de Actividad Usend</span>
+                <span className="font-mono text-amber-400">{usendRequests.length} Solicitudes Históricas Totales</span>
+              </div>
+
+              <div className="w-full bg-slate-800 h-6 rounded-full overflow-hidden flex">
+                <div
+                  className="bg-amber-500 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-black"
+                  style={{ width: `${Math.min(100, (getFilteredUsendCount() / (usendRequests.length || 1)) * 100)}%` }}
+                >
+                  {Math.round((getFilteredUsendCount() / (usendRequests.length || 1)) * 100)}%
+                </div>
+              </div>
+
+              <div className="grid grid-cols-6 gap-2 text-center text-[10px] font-semibold text-slate-400">
+                <div>Día</div>
+                <div>Semana</div>
+                <div>Mes</div>
+                <div>Trimestre</div>
+                <div>Semestre</div>
+                <div>Año</div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* HISTORIAL TABLA DE USEND */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Historial de Solicitudes Registradas</h3>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
+              <table className="w-full text-left text-xs text-slate-300 divide-y divide-slate-800/80">
+                <thead className="bg-[#1a2232] text-slate-400 font-bold uppercase text-[10px] tracking-wider">
                   <tr>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-600">Fecha / Hora</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-600">Cliente</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-600">Tipo</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-600">Detalle</th>
+                    <th className="px-4 py-2.5">Fecha</th>
+                    <th className="px-4 py-2.5">Hora</th>
+                    <th className="px-4 py-2.5">Ejecutiva</th>
+                    <th className="px-4 py-2.5">Asunto Correo</th>
+                    <th className="px-4 py-2.5 text-right">Comprobante</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {logs.length === 0 ? (
+                <tbody className="divide-y divide-slate-800/60">
+                  {usendRequests.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="text-center py-6 text-gray-500">
-                        No has registrado gestiones todavía.
+                      <td colSpan={5} className="text-center py-4 text-slate-500">
+                        No hay solicitudes registradas a Usend.
                       </td>
                     </tr>
                   ) : (
-                    logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-                          {new Date(log.created_at).toLocaleString('es-CL')}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-gray-900">
-                          {log.clients?.company_name || 'Sin especificar'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {log.type === 'telefono' ? (
-                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
-                              📞 Teléfono
-                            </span>
+                    usendRequests.map((req) => (
+                      <tr key={req.id} className="hover:bg-[#1a2232]/50 transition">
+                        <td className="px-4 py-2.5 font-mono text-amber-400">{req.request_date}</td>
+                        <td className="px-4 py-2.5 font-mono text-slate-400">{req.request_time}</td>
+                        <td className="px-4 py-2.5 font-bold text-white">{req.executive_name}</td>
+                        <td className="px-4 py-2.5 text-slate-300">{req.email_subject || 'Sin asunto'}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          {req.file_url ? (
+                            <a
+                              href={req.file_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-emerald-400 hover:text-emerald-300 font-bold text-[11px] underline"
+                            >
+                              📎 Ver Correo
+                            </a>
                           ) : (
-                            <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full font-medium">
-                              ✉️ Correo
-                            </span>
+                            <span className="text-slate-600 text-[10px]">Sin adjunto</span>
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-gray-700 text-xs max-w-xs break-words">
-                          {log.notes}
                         </td>
                       </tr>
                     ))
