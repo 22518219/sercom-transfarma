@@ -184,7 +184,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="mt-4 text-xs font-semibold text-indigo-400 flex items-center">
-                Acceder $\rightarrow$
+                Acceder →
               </div>
             </div>
 
@@ -208,7 +208,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="mt-4 text-xs font-semibold text-emerald-400 flex items-center">
-                Acceder $\rightarrow$
+                Acceder →
               </div>
             </div>
 
@@ -232,7 +232,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="mt-4 text-xs font-semibold text-amber-400 flex items-center">
-                Acceder $\rightarrow$
+                Acceder →
               </div>
             </div>
 
@@ -256,7 +256,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="mt-4 text-xs font-semibold text-sky-400 flex items-center">
-                Acceder $\rightarrow$
+                 Acceder →
               </div>
             </div>
 
