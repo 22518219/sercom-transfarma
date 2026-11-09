@@ -113,6 +113,7 @@ export default function LogsPage() {
   const formatCode = (code?: number) => code ? String(code).padStart(3, '0') : '---'
 
   // FUNCIÓN PARA EXTRAER ASUNTO, FECHA Y HORA DESDE EL ARCHIVO DE CORREO
+  // FUNCIÓN MEJORADA Y ROBUSTA PARA EXTRAER ASUNTO, FECHA Y HORA DEL CORREO
   const extractEmailMetadata = (file: File) => {
     setParsingEmail(true)
     const reader = new FileReader()
@@ -128,25 +129,31 @@ export default function LogsPage() {
       const subjectMatch = content.match(/^Subject:\s*(.*)$/im)
       if (subjectMatch && subjectMatch[1]) {
         let extractedSubject = subjectMatch[1].trim()
-        // Decodificar si el asunto viene codificado en UTF-8/MIME
         if (extractedSubject.includes('=?utf-8?')) {
           extractedSubject = extractedSubject.replace(/=\?utf-8\?[QB]\?(.*?)\?=/gi, '$1')
         }
         setUsendSubject(extractedSubject)
       } else {
-        // Fallback al nombre del archivo si no encuentra cabecera de Subject
         setUsendSubject(file.name.replace(/\.[^/.]+$/, ""))
       }
 
-      // 2. Extraer Fecha y Hora (Date)
+      // 2. Extraer Fecha y Hora (Date) con soporte para zonas horarias e ISO/MIME
       const dateMatch = content.match(/^Date:\s*(.*)$/im)
       if (dateMatch && dateMatch[1]) {
-        const parsedDate = new Date(dateMatch[1].trim())
+        const rawDateStr = dateMatch[1].trim()
+        const parsedDate = new Date(rawDateStr)
+
         if (!isNaN(parsedDate.getTime())) {
-          const formattedDate = parsedDate.toISOString().split('T')[0]
-          const formattedTime = parsedDate.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
-          setUsendDate(formattedDate)
-          setUsendTime(formattedTime)
+          // Extraer fecha en formato YYYY-MM-DD
+          const year = parsedDate.getFullYear()
+          const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
+          const day = String(parsedDate.getDate()).padStart(2, '0')
+          setUsendDate(`${year}-${month}-${day}`)
+
+          // Extraer hora en formato HH:mm (24 horas)
+          const hours = String(parsedDate.getHours()).padStart(2, '0')
+          const minutes = String(parsedDate.getMinutes()).padStart(2, '0')
+          setUsendTime(`${hours}:${minutes}`)
         }
       }
 
@@ -155,8 +162,8 @@ export default function LogsPage() {
 
     reader.onerror = () => setParsingEmail(false)
 
-    // Leer los primeros KB del archivo (suficiente para escanear los headers de correo)
-    const blobHeader = file.slice(0, 100000)
+    // Leer los primeros 150 KB para abarcar todos los encabezados MIME/Date
+    const blobHeader = file.slice(0, 150000)
     reader.readAsText(blobHeader)
   }
 
