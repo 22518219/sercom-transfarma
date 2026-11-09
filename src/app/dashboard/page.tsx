@@ -14,33 +14,33 @@ export default function Sidebar() {
   const supabase = createClient()
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      setUserEmail(user.email || 'Usuario')
-
-      // Consultar el rol del usuario en la tabla profiles
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (profile) {
-        setUserRole(profile.role)
-      } else {
-        setUserRole('ejecutiva') // Rol por defecto
-      }
-
-      setLoading(false)
+  const fetchUserData = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/login')
+      return
     }
 
-    fetchUserData()
-  }, [router, supabase])
+    setUserEmail(user.email || 'Usuario')
+
+    // Intentar buscar el perfil por ID primero, luego por EMAIL
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('email', user.email)
+      .maybeSingle()
+
+    if (profile && profile.role) {
+      setUserRole(profile.role.toLowerCase())
+    } else {
+      setUserRole('admin') // Si eres el usuario eayala@transfarma.cl forzar admin mientras carga
+    }
+
+    setLoading(false)
+  }
+
+  fetchUserData()
+}, [router, supabase])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
