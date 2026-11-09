@@ -40,10 +40,11 @@ export default function LogsPage() {
   const [selectedClient, setSelectedClient] = useState('')
   const [clientDetail, setClientDetail] = useState('')
 
-  // Parte 2: Estados Registro Usend & Drag and Drop
+  // Parte 2: Estados Registro Usend
   const [usendDate, setUsendDate] = useState('')
   const [usendTime, setUsendTime] = useState('')
   const [usendSubject, setUsendSubject] = useState('')
+  const [emailSubjectUrl, setEmailSubjectUrl] = useState('') // Estado corregido
   const [usendFile, setUsendFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
@@ -123,7 +124,6 @@ export default function LogsPage() {
       const droppedFile = e.dataTransfer.files[0]
       setUsendFile(droppedFile)
       
-      // Auto-completar el asunto con el nombre del archivo si está vacío
       if (!usendSubject) {
         setUsendSubject(droppedFile.name.replace(/\.[^/.]+$/, ""))
       }
@@ -170,8 +170,9 @@ export default function LogsPage() {
     }
 
     setUploadingFile(true)
-    let fileUrl = ''
+    let finalFileUrl = emailSubjectUrl.trim()
 
+    // Si adjuntó un archivo físico (.eml, .pdf, .msg), subimos a Supabase Storage
     if (usendFile) {
       const fileExt = usendFile.name.split('.').pop()
       const fileName = `usend_${Date.now()}.${fileExt}`
@@ -182,7 +183,7 @@ export default function LogsPage() {
 
       if (!storageError && storageData) {
         const { data: urlData } = supabase.storage.from('usend_emails').getPublicUrl(fileName)
-        fileUrl = urlData.publicUrl
+        finalFileUrl = urlData.publicUrl
       }
     }
 
@@ -197,7 +198,7 @@ export default function LogsPage() {
           user_id: user?.id,
           executive_name: currentUserName,
           email_subject: usendSubject.trim() || 'Solicitud a Usend',
-          file_url: fileUrl || null
+          file_url: finalFileUrl || null
         }
       ])
 
@@ -208,6 +209,7 @@ export default function LogsPage() {
     } else {
       alert('Solicitud a Usend registrada correctamente.')
       setUsendSubject('')
+      setEmailSubjectUrl('')
       setUsendFile(null)
       fetchInitialData()
     }
@@ -306,7 +308,7 @@ export default function LogsPage() {
             </form>
           </div>
 
-          {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND CON DRAG & DROP DE CORREO */}
+          {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND */}
           <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
             <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
               <span>2️⃣</span>
@@ -338,28 +340,40 @@ export default function LogsPage() {
               </div>
 
               <div>
-  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-    Enlace de Gmail o Archivo (.eml / .pdf)
-  </label>
-  <input
-    type="url"
-    placeholder="https://mail.google.com/mail/u/0/#search/..."
-    value={emailSubjectUrl}
-    onChange={(e) => setEmailSubjectUrl(e.target.value)}
-    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
-  />
-</div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Asunto / Referencia del Correo *</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Solicitud de retiro urgente pedido #4589"
+                  value={usendSubject}
+                  onChange={(e) => setUsendSubject(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
 
-              {/* ZONA DE ARRASTRAR Y SOLTAR EL CORREO (DRAG AND DROP) */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                  Arrastrar Correo / Comprobante (.eml, .msg, .pdf)
+                  Enlace directo de Gmail (Opcional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://mail.google.com/mail/u/0/#search/..."
+                  value={emailSubjectUrl}
+                  onChange={(e) => setEmailSubjectUrl(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {/* ZONA DE ARRASTRAR Y SOLTAR / ADJUNTAR ARCHIVO */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                  O Adjuntar Archivo (.eml descargado, .pdf, .msg)
                 </label>
                 <div
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition ${
+                  className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition ${
                     isDragging
                       ? 'border-emerald-400 bg-emerald-950/20'
                       : usendFile
@@ -381,17 +395,16 @@ export default function LogsPage() {
                   <label htmlFor="file-upload" className="cursor-pointer space-y-1 block">
                     {usendFile ? (
                       <div className="space-y-1">
-                        <span className="text-xl">📧</span>
+                        <span className="text-lg">📧</span>
                         <p className="text-xs font-bold text-emerald-400 truncate">{usendFile.name}</p>
                         <p className="text-[10px] text-slate-400">{(usendFile.size / 1024).toFixed(1)} KB - Listo para subir</p>
                       </div>
                     ) : (
                       <div className="space-y-1">
-                        <span className="text-xl">📥</span>
+                        <span className="text-lg">📥</span>
                         <p className="text-xs font-medium text-slate-300">
-                          Arrastra tu correo desde Outlook/Gmail aquí
+                          Haz clic para adjuntar archivo descargado (.eml / .pdf)
                         </p>
-                        <p className="text-[10px] text-slate-500">o haz clic para explorar tu equipo</p>
                       </div>
                     )}
                   </label>
@@ -403,7 +416,7 @@ export default function LogsPage() {
                 disabled={uploadingFile}
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition disabled:opacity-50"
               >
-                {uploadingFile ? 'Subiendo Archivo...' : '+ Registrar Solicitud Usend'}
+                {uploadingFile ? 'Subiendo Registro...' : '+ Registrar Solicitud Usend'}
               </button>
             </form>
           </div>
@@ -475,7 +488,7 @@ export default function LogsPage() {
             </div>
           </div>
 
-          {/* TABLA DE HISTORIAL CON LINK DIRECTO AL CORREO / ADJUNTO */}
+          {/* TABLA DE HISTORIAL CON LINK DIRECTO AL CORREO */}
           <div className="space-y-3 pt-2">
             <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Historial de Solicitudes Registradas</h3>
             <div className="overflow-x-auto">
@@ -486,7 +499,7 @@ export default function LogsPage() {
                     <th className="px-4 py-2.5">Hora</th>
                     <th className="px-4 py-2.5">Ejecutiva</th>
                     <th className="px-4 py-2.5">Asunto / Referencia</th>
-                    <th className="px-4 py-2.5 text-right">Correo Adjunto</th>
+                    <th className="px-4 py-2.5 text-right">Correo / Enlace</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -515,7 +528,7 @@ export default function LogsPage() {
                               <span>Ver / Abrir Correo</span>
                             </a>
                           ) : (
-                            <span className="text-slate-600 text-[10px]">Sin adjunto</span>
+                            <span className="text-slate-600 text-[10px]">Sin enlace</span>
                           )}
                         </td>
                       </tr>
