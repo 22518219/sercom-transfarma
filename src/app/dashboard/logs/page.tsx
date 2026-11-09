@@ -392,11 +392,20 @@ export default function LogsPage() {
     }).length
   }
 
-  // CÁLCULOS ESTADÍSTICOS DASHBOARD DE GESTIONES
+  // CÁLCULOS ESTADÍSTICOS DASHBOARD DE GESTIONES (CLIENTES Y USEND)
   const getLogsByExecutive = () => {
     const map: Record<string, number> = {}
     logs.forEach(l => {
       const exec = l.executive_name || 'Sin Asignar'
+      map[exec] = (map[exec] || 0) + 1
+    })
+    return Object.entries(map).map(([name, count]) => ({ name, count }))
+  }
+
+  const getUsendByExecutive = () => {
+    const map: Record<string, number> = {}
+    usendRequests.forEach(r => {
+      const exec = r.executive_name || 'Sin Asignar'
       map[exec] = (map[exec] || 0) + 1
     })
     return Object.entries(map).map(([name, count]) => ({ name, count }))
@@ -455,7 +464,7 @@ export default function LogsPage() {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                📊 Dashboard Gestiones
+                📊 Dashboard Gestiones & Usend
               </button>
             </div>
 
@@ -828,38 +837,46 @@ export default function LogsPage() {
           </div>
         )}
 
-        {/* SUBMÓDULO 2: DASHBOARD DE GESTIONES */}
+        {/* SUBMÓDULO 2: DASHBOARD DE GESTIONES Y USEND INTEGRADO */}
         {activeTab === 'dashboard_gestiones' && (
           <div className="space-y-6">
             
-            {/* KPI GENERALES */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* KPI GENERALES DE AMBAS GESTIONES */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg text-center space-y-1">
-                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Total Gestiones Registradas</span>
+                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Gestiones de Clientes</span>
                 <p className="text-4xl font-extrabold text-white">{logs.length}</p>
-                <p className="text-[11px] text-slate-400">Gestiones acumuladas de ejecutivas</p>
+                <p className="text-[11px] text-slate-400">Registros directos con mandantes</p>
               </div>
 
               <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg text-center space-y-1">
-                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Clientes Atendidos</span>
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Solicitudes a Usend</span>
+                <p className="text-4xl font-extrabold text-white">{usendRequests.length}</p>
+                <p className="text-[11px] text-slate-400">Solicitudes enviadas a Usend</p>
+              </div>
+
+              <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg text-center space-y-1">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Clientes Atendidos</span>
                 <p className="text-4xl font-extrabold text-white">{getLogsByClient().length}</p>
-                <p className="text-[11px] text-slate-400">Clientes únicos con gestiones</p>
+                <p className="text-[11px] text-slate-400">Clientes únicos en la cartera</p>
               </div>
 
               <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg text-center space-y-1">
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Ejecutivas Activas</span>
-                <p className="text-4xl font-extrabold text-white">{getLogsByExecutive().length}</p>
-                <p className="text-[11px] text-slate-400">Ejecutivas con registros en bitácora</p>
+                <span className="text-[10px] font-bold text-sky-400 uppercase tracking-widest">Ejecutivas Activas</span>
+                <p className="text-4xl font-extrabold text-white">
+                  {Array.from(new Set([...logs.map(l => l.executive_name), ...usendRequests.map(r => r.executive_name)])).filter(Boolean).length}
+                </p>
+                <p className="text-[11px] text-slate-400">Ejecutivas operando ambas áreas</p>
               </div>
             </div>
 
-            {/* GRÁFICAS DE DISTRIBUCIÓN POR EJECUTIVA Y CLIENTES TOP */}
+            {/* GRÁFICAS DE DISTRIBUCIÓN POR EJECUTIVA (CLIENTES Y USEND) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
-              {/* DISTRIBUCIÓN POR EJECUTIVA */}
+              {/* DISTRIBUCIÓN GESTIONES CLIENTES POR EJECUTIVA */}
               <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
                 <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-                  📊 Gestiones por Ejecutiva
+                  📋 Gestiones de Clientes por Ejecutiva
                 </h2>
                 <div className="space-y-3">
                   {getLogsByExecutive().length === 0 ? (
@@ -886,22 +903,22 @@ export default function LogsPage() {
                 </div>
               </div>
 
-              {/* TOP 5 CLIENTES MÁS GESTIONADOS */}
+              {/* DISTRIBUCIÓN SOLICITUDES USEND POR EJECUTIVA */}
               <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
                 <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                  🏆 Top 5 Clientes con Mayor Interacción
+                  📧 Solicitudes Usend por Ejecutiva
                 </h2>
                 <div className="space-y-3">
-                  {getLogsByClient().length === 0 ? (
-                    <p className="text-slate-500 text-xs">Sin registros de clientes.</p>
+                  {getUsendByExecutive().length === 0 ? (
+                    <p className="text-slate-500 text-xs">Sin solicitudes registradas.</p>
                   ) : (
-                    getLogsByClient().map(([clientName, count]) => {
-                      const percentage = Math.round((count / (logs.length || 1)) * 100)
+                    getUsendByExecutive().map((exec) => {
+                      const percentage = Math.round((exec.count / (usendRequests.length || 1)) * 100)
                       return (
-                        <div key={clientName} className="space-y-1">
+                        <div key={exec.name} className="space-y-1">
                           <div className="flex justify-between text-xs font-medium">
-                            <span className="text-slate-200 truncate max-w-xs">{clientName}</span>
-                            <span className="text-emerald-400 font-bold">{count} gestiones ({percentage}%)</span>
+                            <span className="text-slate-200">{exec.name}</span>
+                            <span className="text-emerald-400 font-bold">{exec.count} solicitudes ({percentage}%)</span>
                           </div>
                           <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
                             <div
@@ -916,6 +933,36 @@ export default function LogsPage() {
                 </div>
               </div>
 
+            </div>
+
+            {/* TOP 5 CLIENTES MÁS GESTIONADOS */}
+            <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+              <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                🏆 Top 5 Clientes con Mayor Interacción en Gestiones
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {getLogsByClient().length === 0 ? (
+                  <p className="text-slate-500 text-xs col-span-2">Sin registros de clientes.</p>
+                ) : (
+                  getLogsByClient().map(([clientName, count]) => {
+                    const percentage = Math.round((count / (logs.length || 1)) * 100)
+                    return (
+                      <div key={clientName} className="space-y-1 bg-[#121824] p-3 rounded-lg border border-slate-800/60">
+                        <div className="flex justify-between text-xs font-medium">
+                          <span className="text-slate-200 truncate">{clientName}</span>
+                          <span className="text-amber-400 font-bold">{count} gestiones ({percentage}%)</span>
+                        </div>
+                        <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-amber-500 h-full transition-all duration-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
             </div>
 
           </div>
