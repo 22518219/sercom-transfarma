@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, dragEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../../lib/supabase'
 
@@ -40,11 +40,12 @@ export default function LogsPage() {
   const [selectedClient, setSelectedClient] = useState('')
   const [clientDetail, setClientDetail] = useState('')
 
-  // Parte 2: Estados Registro Usend (inicializados vacíos para evitar error de SSR/Prerender)
+  // Parte 2: Estados Registro Usend & Drag and Drop
   const [usendDate, setUsendDate] = useState('')
   const [usendTime, setUsendTime] = useState('')
   const [usendSubject, setUsendSubject] = useState('')
   const [usendFile, setUsendFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
 
   // Parte 3: Filtro de Gráfico
@@ -54,7 +55,6 @@ export default function LogsPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    // Establecer fecha y hora iniciales solo en el cliente
     const now = new Date()
     setUsendDate(now.toISOString().split('T')[0])
     setUsendTime(now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }))
@@ -71,7 +71,6 @@ export default function LogsPage() {
       return
     }
 
-    // Perfil usuario activo
     const { data: profile } = await supabase
       .from('profiles')
       .select('name, role')
@@ -81,7 +80,6 @@ export default function LogsPage() {
     const userName = profile?.name || user.email || 'Ejecutiva'
     setCurrentUserName(userName)
 
-    // Cargar clientes
     const { data: clientsData } = await supabase
       .from('clients')
       .select('id, code, company_name')
@@ -89,7 +87,6 @@ export default function LogsPage() {
 
     if (clientsData) setAssignedClients(clientsData as Client[])
 
-    // Cargar gestiones de clientes
     const { data: logsData } = await supabase
       .from('logs')
       .select('*, client:clients(id, code, company_name)')
@@ -97,7 +94,6 @@ export default function LogsPage() {
 
     if (logsData) setLogs(logsData as unknown as LogEntry[])
 
-    // Cargar gestiones de Usend
     const { data: usendData } = await supabase
       .from('usend_requests')
       .select('*')
@@ -110,7 +106,31 @@ export default function LogsPage() {
 
   const formatCode = (code?: number) => code ? String(code).padStart(3, '0') : '---'
 
-  // GUARDAR PARTE 1: GESTIÓN DE CLIENTE
+  // EVENTOS DRAG & DROP
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const droppedFile = e.dataTransfer.files[0]
+      setUsendFile(droppedFile)
+      
+      // Auto-completar el asunto con el nombre del archivo si está vacío
+      if (!usendSubject) {
+        setUsendSubject(droppedFile.name.replace(/\.[^/.]+$/, ""))
+      }
+    }
+  }
+
+  // GUARDAR GESTIÓN CLIENTE
   const handleSaveClientLog = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedClient || !clientDetail.trim()) {
@@ -141,7 +161,7 @@ export default function LogsPage() {
     }
   }
 
-  // GUARDAR PARTE 2: REGISTRO USEND (CON SUBIDA DE CORREO/ARCHIVO)
+  // GUARDAR REGISTRO USEND
   const handleSaveUsendRequest = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!usendDate || !usendTime) {
@@ -152,7 +172,6 @@ export default function LogsPage() {
     setUploadingFile(true)
     let fileUrl = ''
 
-    // Subir archivo a Supabase Storage si adjuntó correo
     if (usendFile) {
       const fileExt = usendFile.name.split('.').pop()
       const fileName = `usend_${Date.now()}.${fileExt}`
@@ -194,7 +213,7 @@ export default function LogsPage() {
     }
   }
 
-  // CÁLCULO PARTE 3: ESTADÍSTICAS USEND
+  // CÁLCULO ESTADÍSTICAS USEND
   const getFilteredUsendCount = () => {
     const now = new Date()
     return usendRequests.filter(req => {
@@ -215,7 +234,7 @@ export default function LogsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0b0f17]">
-        <p className="text-slate-400 font-medium text-xs tracking-wider uppercase">Cargando Bitácora y Estadísticas Usend...</p>
+        <p className="text-slate-400 font-medium text-xs tracking-wider uppercase">Cargando Bitácora...</p>
       </div>
     )
   }
@@ -238,7 +257,7 @@ export default function LogsPage() {
           </button>
         </div>
 
-        {/* PARTE 1 Y PARTE 2 EN 2 COLUMNAS */}
+        {/* PARTE 1 Y PARTE 2 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* PARTE 1: REGISTRO DE GESTIONES POR CLIENTE */}
@@ -287,7 +306,7 @@ export default function LogsPage() {
             </form>
           </div>
 
-          {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND */}
+          {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND CON DRAG & DROP DE CORREO */}
           <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
             <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
               <span>2️⃣</span>
@@ -319,23 +338,63 @@ export default function LogsPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Asunto / Referencia del Correo</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Asunto / Referencia del Correo *</label>
                 <input
                   type="text"
                   placeholder="Ej: Solicitud de retiro urgente pedido #4589"
                   value={usendSubject}
                   onChange={(e) => setUsendSubject(e.target.value)}
                   className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                  required
                 />
               </div>
 
+              {/* ZONA DE ARRASTRAR Y SOLTAR EL CORREO (DRAG AND DROP) */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Adjuntar Correo / Comprobante (.eml, .pdf, .msg, imagen)</label>
-                <input
-                  type="file"
-                  onChange={(e) => setUsendFile(e.target.files ? e.target.files[0] : null)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2 focus:outline-none focus:border-emerald-500 file:bg-slate-800 file:text-slate-300 file:border-0 file:rounded file:px-2 file:py-1 file:mr-2 file:text-xs cursor-pointer"
-                />
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                  Arrastrar Correo / Comprobante (.eml, .msg, .pdf)
+                </label>
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition ${
+                    isDragging
+                      ? 'border-emerald-400 bg-emerald-950/20'
+                      : usendFile
+                      ? 'border-emerald-500/80 bg-[#1a2232]'
+                      : 'border-slate-700/80 hover:border-slate-600 bg-[#121824]'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    id="file-upload"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setUsendFile(e.target.files[0])
+                        if (!usendSubject) setUsendSubject(e.target.files[0].name.replace(/\.[^/.]+$/, ""))
+                      }
+                    }}
+                  />
+                  <label htmlFor="file-upload" className="cursor-pointer space-y-1 block">
+                    {usendFile ? (
+                      <div className="space-y-1">
+                        <span className="text-xl">📧</span>
+                        <p className="text-xs font-bold text-emerald-400 truncate">{usendFile.name}</p>
+                        <p className="text-[10px] text-slate-400">{(usendFile.size / 1024).toFixed(1)} KB - Listo para subir</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <span className="text-xl">📥</span>
+                        <p className="text-xs font-medium text-slate-300">
+                          Arrastra tu correo desde Outlook/Gmail aquí
+                        </p>
+                        <p className="text-[10px] text-slate-500">o haz clic para explorar tu equipo</p>
+                      </div>
+                    )}
+                  </label>
+                </div>
               </div>
 
               <button
@@ -361,7 +420,6 @@ export default function LogsPage() {
               <p className="text-[11px] text-slate-400">Consolidado de solicitudes enviadas a Usend por periodo de tiempo</p>
             </div>
 
-            {/* Selector Filtro de Tiempo */}
             <div className="flex items-center space-x-1 bg-[#1a2232] p-1 rounded-lg border border-slate-700/60">
               {(['day', 'week', 'month', 'quarter', 'semester', 'year'] as const).map((t) => (
                 <button
@@ -379,10 +437,7 @@ export default function LogsPage() {
             </div>
           </div>
 
-          {/* KPI Y GRÁFICO VISUAL NATIVO */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-            
-            {/* KPI Card */}
             <div className="bg-[#121824] p-6 rounded-xl border border-slate-800/60 text-center">
               <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">
                 Total Solicitudes ({timeFilter.toUpperCase()})
@@ -393,7 +448,6 @@ export default function LogsPage() {
               <p className="text-[11px] text-slate-400 mt-2">Registros acumulados en el periodo seleccionado</p>
             </div>
 
-            {/* Barra Visual Proporcional */}
             <div className="md:col-span-2 bg-[#121824] p-6 rounded-xl border border-slate-800/60 space-y-4">
               <div className="flex justify-between items-center text-xs">
                 <span className="font-bold text-slate-300">Volumen de Actividad Usend</span>
@@ -418,10 +472,9 @@ export default function LogsPage() {
                 <div>Año</div>
               </div>
             </div>
-
           </div>
 
-          {/* HISTORIAL TABLA DE USEND */}
+          {/* TABLA DE HISTORIAL CON LINK DIRECTO AL CORREO / ADJUNTO */}
           <div className="space-y-3 pt-2">
             <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Historial de Solicitudes Registradas</h3>
             <div className="overflow-x-auto">
@@ -431,8 +484,8 @@ export default function LogsPage() {
                     <th className="px-4 py-2.5">Fecha</th>
                     <th className="px-4 py-2.5">Hora</th>
                     <th className="px-4 py-2.5">Ejecutiva</th>
-                    <th className="px-4 py-2.5">Asunto Correo</th>
-                    <th className="px-4 py-2.5 text-right">Comprobante</th>
+                    <th className="px-4 py-2.5">Asunto / Referencia</th>
+                    <th className="px-4 py-2.5 text-right">Correo Adjunto</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -455,9 +508,10 @@ export default function LogsPage() {
                               href={req.file_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-emerald-400 hover:text-emerald-300 font-bold text-[11px] underline"
+                              className="inline-flex items-center space-x-1 text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 px-2.5 py-1 rounded text-[11px] font-bold transition"
                             >
-                              📎 Ver Correo
+                              <span>📧</span>
+                              <span>Ver / Abrir Correo</span>
                             </a>
                           ) : (
                             <span className="text-slate-600 text-[10px]">Sin adjunto</span>
