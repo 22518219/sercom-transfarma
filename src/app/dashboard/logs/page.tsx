@@ -36,20 +36,24 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(true)
   const [currentUserName, setCurrentUserName] = useState('')
 
-  // Parte 1: Estados Registro Cliente
+  // Submódulos / Pestañas principales
+  const [activeTab, setActiveTab] = useState<'bitacora' | 'dashboard_gestiones'>('bitacora')
+
+  // Parte 1: Estados Registro Cliente y Filtro
   const [selectedClient, setSelectedClient] = useState('')
   const [clientDetail, setClientDetail] = useState('')
+  const [filterClient, setFilterClient] = useState('ALL')
 
   // Parte 2: Estados Registro Usend
   const [usendDate, setUsendDate] = useState('')
   const [usendTime, setUsendTime] = useState('')
   const [usendSubject, setUsendSubject] = useState('')
-  const [emailSubjectUrl, setEmailSubjectUrl] = useState('') // Estado corregido
+  const [emailSubjectUrl, setEmailSubjectUrl] = useState('')
   const [usendFile, setUsendFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
 
-  // Parte 3: Filtro de Gráfico
+  // Parte 3: Filtro de Gráfico Usend
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'quarter' | 'semester' | 'year'>('month')
 
   const router = useRouter()
@@ -106,6 +110,105 @@ export default function LogsPage() {
   }
 
   const formatCode = (code?: number) => code ? String(code).padStart(3, '0') : '---'
+
+  // DESCARGA DE GESTIONES CON FORMATO EXCEL MODERNO (HTML/XML TABLE)
+  const handleExportExcel = () => {
+    const filteredLogs = filterClient === 'ALL'
+      ? logs
+      : logs.filter(l => l.client_id === filterClient)
+
+    if (filteredLogs.length === 0) {
+      alert('No hay gestiones para exportar.')
+      return
+    }
+
+    const currentDate = new Date().toLocaleDateString('es-CL')
+
+    const excelHTML = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Bitácora de Gestiones</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; }
+          .title { font-size: 16px; font-weight: bold; color: #0f172a; padding: 10px 0; }
+          .subtitle { font-size: 11px; color: #64748b; margin-bottom: 15px; }
+          table { border-collapse: collapse; width: 100%; font-family: 'Segoe UI', Arial, sans-serif; }
+          th { 
+            background-color: #0f172a; 
+            color: #ffffff; 
+            font-weight: bold; 
+            text-align: left; 
+            padding: 10px 12px; 
+            font-size: 11px;
+            text-transform: uppercase;
+            border: 1px solid #334155;
+          }
+          td { 
+            padding: 8px 12px; 
+            border: 1px solid #e2e8f0; 
+            color: #334155; 
+            font-size: 11px; 
+            vertical-align: top;
+          }
+          tr:nth-child(even) td { background-color: #f8fafc; }
+          tr:hover td { background-color: #f1f5f9; }
+          .code { font-family: 'Courier New', monospace; font-weight: bold; color: #2563eb; }
+          .exec { font-weight: 600; color: #0f172a; }
+          .date { color: #64748b; font-size: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="title">SERCOM-TRANSFARMA - BITÁCORA DE GESTIONES CORPORATIVAS</div>
+        <div class="subtitle">Reporte generado el: ${currentDate} | Total de registros: ${filteredLogs.length}</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 140px;">Fecha y Hora</th>
+              <th style="width: 90px;">Cód. Cliente</th>
+              <th style="width: 220px;">Cliente / Mandante</th>
+              <th style="width: 180px;">Ejecutiva Responsable</th>
+              <th style="width: 400px;">Detalle de la Gestión</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredLogs.map(l => `
+              <tr>
+                <td class="date">${new Date(l.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                <td class="code">${formatCode(l.client?.code)}</td>
+                <td><strong>${(l.client?.company_name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</strong></td>
+                <td class="exec">${(l.executive_name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+                <td>${(l.detail || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `
+
+    const blob = new Blob([excelHTML], { type: 'application/vnd.ms-excel;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `Bitacora_Gestiones_Sercom_${new Date().toISOString().split('T')[0]}.xls`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   // EVENTOS DRAG & DROP
   const handleDragOver = (e: React.DragEvent) => {
@@ -172,7 +275,6 @@ export default function LogsPage() {
     setUploadingFile(true)
     let finalFileUrl = emailSubjectUrl.trim()
 
-    // Si adjuntó un archivo físico (.eml, .pdf, .msg), subimos a Supabase Storage
     if (usendFile) {
       const fileExt = usendFile.name.split('.').pop()
       const fileName = `usend_${Date.now()}.${fileExt}`
@@ -215,7 +317,7 @@ export default function LogsPage() {
     }
   }
 
-  // CÁLCULO ESTADÍSTICAS USEND
+  // CÁLCULOS ESTADÍSTICOS USEND
   const getFilteredUsendCount = () => {
     const now = new Date()
     return usendRequests.filter(req => {
@@ -233,6 +335,29 @@ export default function LogsPage() {
     }).length
   }
 
+  // CÁLCULOS ESTADÍSTICOS DASHBOARD DE GESTIONES
+  const getLogsByExecutive = () => {
+    const map: Record<string, number> = {}
+    logs.forEach(l => {
+      const exec = l.executive_name || 'Sin Asignar'
+      map[exec] = (map[exec] || 0) + 1
+    })
+    return Object.entries(map).map(([name, count]) => ({ name, count }))
+  }
+
+  const getLogsByClient = () => {
+    const map: Record<string, number> = {}
+    logs.forEach(l => {
+      const clientName = l.client?.company_name ? `[${formatCode(l.client.code)}] ${l.client.company_name}` : 'Cliente Desconocido'
+      map[clientName] = (map[clientName] || 0) + 1
+    })
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  }
+
+  const filteredLogsList = filterClient === 'ALL'
+    ? logs
+    : logs.filter(l => l.client_id === filterClient)
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0b0f17]">
@@ -242,304 +367,502 @@ export default function LogsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f17] text-slate-200 p-6 font-sans space-y-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#0b0f17] text-slate-200 p-6 font-sans space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* ENCABEZADO */}
-        <div className="flex justify-between items-center bg-[#121824] p-4 rounded-xl border border-slate-800/60 shadow-lg">
+        {/* ENCABEZADO Y SELECTOR DE SUBMÓDULOS */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#121824] p-4 rounded-xl border border-slate-800/60 shadow-lg">
           <div>
             <h1 className="text-base font-bold text-white tracking-tight">Bitácora de Gestiones y Control Usend</h1>
-            <p className="text-xs text-slate-400">Registro diario de interacciones corporativas y solicitudes a Usend</p>
+            <p className="text-xs text-slate-400">Plataforma centralizada de registro, seguimiento y métricas ejecutivas</p>
           </div>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="bg-[#1a2232] hover:bg-slate-700 text-slate-300 text-xs font-semibold px-4 py-2 rounded-lg border border-slate-700/60 transition"
-          >
-            ← Volver al Dashboard
-          </button>
+
+          <div className="flex items-center space-x-3">
+            {/* Pestañas Submódulos */}
+            <div className="flex bg-[#1a2232] p-1 rounded-lg border border-slate-700/60">
+              <button
+                onClick={() => setActiveTab('bitacora')}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-md transition ${
+                  activeTab === 'bitacora'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                📋 Registros & Bitácora
+              </button>
+              <button
+                onClick={() => setActiveTab('dashboard_gestiones')}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-md transition ${
+                  activeTab === 'dashboard_gestiones'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                📊 Dashboard Gestiones
+              </button>
+            </div>
+
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="bg-[#1a2232] hover:bg-slate-700 text-slate-300 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-700/60 transition"
+            >
+              ← Volver
+            </button>
+          </div>
         </div>
 
-        {/* PARTE 1 Y PARTE 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* PARTE 1: REGISTRO DE GESTIONES POR CLIENTE */}
-          <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
-            <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center space-x-2">
-              <span>1️⃣</span>
-              <span>Registro de Gestión por Ejecutiva</span>
-            </h2>
+        {/* SUBMÓDULO 1: REGISTROS Y BITÁCORA */}
+        {activeTab === 'bitacora' && (
+          <div className="space-y-8">
+            
+            {/* PARTE 1 Y PARTE 2 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* PARTE 1: REGISTRO DE GESTIONES POR CLIENTE */}
+              <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+                <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center space-x-2">
+                  <span>1️⃣</span>
+                  <span>Registro de Gestión por Ejecutiva</span>
+                </h2>
 
-            <form onSubmit={handleSaveClientLog} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Seleccionar Cliente / Mandante *</label>
-                <select
-                  value={selectedClient}
-                  onChange={(e) => setSelectedClient(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
-                  required
-                >
-                  <option value="">-- Selecciona un cliente --</option>
-                  {assignedClients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      [{formatCode(c.code)}] {c.company_name}
-                    </option>
-                  ))}
-                </select>
+                <form onSubmit={handleSaveClientLog} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Seleccionar Cliente / Mandante *</label>
+                    <select
+                      value={selectedClient}
+                      onChange={(e) => setSelectedClient(e.target.value)}
+                      className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                      required
+                    >
+                      <option value="">-- Selecciona un cliente --</option>
+                      {assignedClients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          [{formatCode(c.code)}] {c.company_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Breve Detalle de la Gestión *</label>
+                    <textarea
+                      rows={4}
+                      placeholder="Escribe un resumen conciso de lo gestionado con el cliente..."
+                      value={clientDetail}
+                      onChange={(e) => setClientDetail(e.target.value)}
+                      className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500 resize-none"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition"
+                  >
+                    + Registrar Gestión de Cliente
+                  </button>
+                </form>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Breve Detalle de la Gestión *</label>
-                <textarea
-                  rows={4}
-                  placeholder="Escribe un resumen conciso de lo gestionado con el cliente..."
-                  value={clientDetail}
-                  onChange={(e) => setClientDetail(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500 resize-none"
-                  required
-                />
+              {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND */}
+              <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+                <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
+                  <span>2️⃣</span>
+                  <span>Registro de Solicitudes a USEND</span>
+                </h2>
+
+                <form onSubmit={handleSaveUsendRequest} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha *</label>
+                      <input
+                        type="date"
+                        value={usendDate}
+                        onChange={(e) => setUsendDate(e.target.value)}
+                        className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Hora *</label>
+                      <input
+                        type="time"
+                        value={usendTime}
+                        onChange={(e) => setUsendTime(e.target.value)}
+                        className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Asunto / Referencia del Correo *</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: Solicitud de retiro urgente pedido #4589"
+                      value={usendSubject}
+                      onChange={(e) => setUsendSubject(e.target.value)}
+                      className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                      Enlace directo de Gmail (Opcional)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://mail.google.com/mail/u/0/#search/..."
+                      value={emailSubjectUrl}
+                      onChange={(e) => setEmailSubjectUrl(e.target.value)}
+                      className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                      O Adjuntar Archivo (.eml descargado, .pdf, .msg)
+                    </label>
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition ${
+                        isDragging
+                          ? 'border-emerald-400 bg-emerald-950/20'
+                          : usendFile
+                          ? 'border-emerald-500/80 bg-[#1a2232]'
+                          : 'border-slate-700/80 hover:border-slate-600 bg-[#121824]'
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        id="file-upload"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setUsendFile(e.target.files[0])
+                            if (!usendSubject) setUsendSubject(e.target.files[0].name.replace(/\.[^/.]+$/, ""))
+                          }
+                        }}
+                      />
+                      <label htmlFor="file-upload" className="cursor-pointer space-y-1 block">
+                        {usendFile ? (
+                          <div className="space-y-1">
+                            <span className="text-lg">📧</span>
+                            <p className="text-xs font-bold text-emerald-400 truncate">{usendFile.name}</p>
+                            <p className="text-[10px] text-slate-400">{(usendFile.size / 1024).toFixed(1)} KB - Listo para subir</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <span className="text-lg">📥</span>
+                            <p className="text-xs font-medium text-slate-300">
+                              Haz clic para adjuntar archivo descargado (.eml / .pdf)
+                            </p>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={uploadingFile}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition disabled:opacity-50"
+                  >
+                    {uploadingFile ? 'Subiendo Registro...' : '+ Registrar Solicitud Usend'}
+                  </button>
+                </form>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition"
-              >
-                + Registrar Gestión de Cliente
-              </button>
-            </form>
-          </div>
+            </div>
 
-          {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND */}
-          <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
-            <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
-              <span>2️⃣</span>
-              <span>Registro de Solicitudes a USEND</span>
-            </h2>
-
-            <form onSubmit={handleSaveUsendRequest} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+            {/* TABLA HISTORIAL DE GESTIONES CON BOTÓN DE DESCARGA EXCEL MODERNO */}
+            <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha *</label>
-                  <input
-                    type="date"
-                    value={usendDate}
-                    onChange={(e) => setUsendDate(e.target.value)}
-                    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
-                    required
-                  />
+                  <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Historial de Gestiones Registradas</h2>
+                  <p className="text-[11px] text-slate-400">Consultar o exportar gestiones por cliente</p>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Hora *</label>
-                  <input
-                    type="time"
-                    value={usendTime}
-                    onChange={(e) => setUsendTime(e.target.value)}
-                    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
-                    required
-                  />
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Asunto / Referencia del Correo *</label>
-                <input
-                  type="text"
-                  placeholder="Ej: Solicitud de retiro urgente pedido #4589"
-                  value={usendSubject}
-                  onChange={(e) => setUsendSubject(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
-                  required
-                />
-              </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    value={filterClient}
+                    onChange={(e) => setFilterClient(e.target.value)}
+                    className="bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="ALL">TODOS LOS CLIENTES ({logs.length})</option>
+                    {assignedClients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        [{formatCode(c.code)}] {c.company_name}
+                      </option>
+                    ))}
+                  </select>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                  Enlace directo de Gmail (Opcional)
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://mail.google.com/mail/u/0/#search/..."
-                  value={emailSubjectUrl}
-                  onChange={(e) => setEmailSubjectUrl(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              {/* ZONA DE ARRASTRAR Y SOLTAR / ADJUNTAR ARCHIVO */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                  O Adjuntar Archivo (.eml descargado, .pdf, .msg)
-                </label>
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition ${
-                    isDragging
-                      ? 'border-emerald-400 bg-emerald-950/20'
-                      : usendFile
-                      ? 'border-emerald-500/80 bg-[#1a2232]'
-                      : 'border-slate-700/80 hover:border-slate-600 bg-[#121824]'
-                  }`}
-                >
-                  <input
-                    type="file"
-                    id="file-upload"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setUsendFile(e.target.files[0])
-                        if (!usendSubject) setUsendSubject(e.target.files[0].name.replace(/\.[^/.]+$/, ""))
-                      }
-                    }}
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer space-y-1 block">
-                    {usendFile ? (
-                      <div className="space-y-1">
-                        <span className="text-lg">📧</span>
-                        <p className="text-xs font-bold text-emerald-400 truncate">{usendFile.name}</p>
-                        <p className="text-[10px] text-slate-400">{(usendFile.size / 1024).toFixed(1)} KB - Listo para subir</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <span className="text-lg">📥</span>
-                        <p className="text-xs font-medium text-slate-300">
-                          Haz clic para adjuntar archivo descargado (.eml / .pdf)
-                        </p>
-                      </div>
-                    )}
-                  </label>
+                  <button
+                    onClick={handleExportExcel}
+                    className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-600/60 shadow flex items-center space-x-1.5 transition"
+                  >
+                    <span>📊</span>
+                    <span>Exportar Excel Moderno (.xls)</span>
+                  </button>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={uploadingFile}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition disabled:opacity-50"
-              >
-                {uploadingFile ? 'Subiendo Registro...' : '+ Registrar Solicitud Usend'}
-              </button>
-            </form>
-          </div>
-
-        </div>
-
-        {/* PARTE 3: GRÁFICA ESTADÍSTICA Y DASHBOARD DE GESTIONES USEND */}
-        <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/60 pb-4">
-            <div>
-              <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center space-x-2">
-                <span>3️⃣</span>
-                <span>Gráfica Estadísticas Usend</span>
-              </h2>
-              <p className="text-[11px] text-slate-400">Consolidado de solicitudes enviadas a Usend por periodo de tiempo</p>
-            </div>
-
-            <div className="flex items-center space-x-1 bg-[#1a2232] p-1 rounded-lg border border-slate-700/60">
-              {(['day', 'week', 'month', 'quarter', 'semester', 'year'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTimeFilter(t)}
-                  className={`text-[10px] font-bold px-3 py-1.5 rounded-md capitalize transition ${
-                    timeFilter === t
-                      ? 'bg-amber-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {t === 'day' ? 'Día' : t === 'week' ? 'Semana' : t === 'month' ? 'Mes' : t === 'quarter' ? 'Trimestre' : t === 'semester' ? 'Semestre' : 'Año'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-            <div className="bg-[#121824] p-6 rounded-xl border border-slate-800/60 text-center">
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">
-                Total Solicitudes ({timeFilter.toUpperCase()})
-              </span>
-              <span className="text-5xl font-extrabold text-white">
-                {getFilteredUsendCount()}
-              </span>
-              <p className="text-[11px] text-slate-400 mt-2">Registros acumulados en el periodo seleccionado</p>
-            </div>
-
-            <div className="md:col-span-2 bg-[#121824] p-6 rounded-xl border border-slate-800/60 space-y-4">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-slate-300">Volumen de Actividad Usend</span>
-                <span className="font-mono text-amber-400">{usendRequests.length} Solicitudes Históricas Totales</span>
-              </div>
-
-              <div className="w-full bg-slate-800 h-6 rounded-full overflow-hidden flex">
-                <div
-                  className="bg-amber-500 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-black"
-                  style={{ width: `${Math.min(100, (getFilteredUsendCount() / (usendRequests.length || 1)) * 100)}%` }}
-                >
-                  {Math.round((getFilteredUsendCount() / (usendRequests.length || 1)) * 100)}%
-                </div>
-              </div>
-
-              <div className="grid grid-cols-6 gap-2 text-center text-[10px] font-semibold text-slate-400">
-                <div>Día</div>
-                <div>Semana</div>
-                <div>Mes</div>
-                <div>Trimestre</div>
-                <div>Semestre</div>
-                <div>Año</div>
-              </div>
-            </div>
-          </div>
-
-          {/* TABLA DE HISTORIAL CON LINK DIRECTO AL CORREO */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Historial de Solicitudes Registradas</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300 divide-y divide-slate-800/80">
-                <thead className="bg-[#1a2232] text-slate-400 font-bold uppercase text-[10px] tracking-wider">
-                  <tr>
-                    <th className="px-4 py-2.5">Fecha</th>
-                    <th className="px-4 py-2.5">Hora</th>
-                    <th className="px-4 py-2.5">Ejecutiva</th>
-                    <th className="px-4 py-2.5">Asunto / Referencia</th>
-                    <th className="px-4 py-2.5 text-right">Correo / Enlace</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {usendRequests.length === 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300 divide-y divide-slate-800/80">
+                  <thead className="bg-[#1a2232] text-slate-400 font-bold uppercase text-[10px] tracking-wider">
                     <tr>
-                      <td colSpan={5} className="text-center py-4 text-slate-500">
-                        No hay solicitudes registradas a Usend.
-                      </td>
+                      <th className="px-4 py-3">Fecha y Hora</th>
+                      <th className="px-4 py-3">Cliente / Mandante</th>
+                      <th className="px-4 py-3">Ejecutiva</th>
+                      <th className="px-4 py-3">Detalle de la Gestión</th>
                     </tr>
-                  ) : (
-                    usendRequests.map((req) => (
-                      <tr key={req.id} className="hover:bg-[#1a2232]/50 transition">
-                        <td className="px-4 py-2.5 font-mono text-amber-400">{req.request_date}</td>
-                        <td className="px-4 py-2.5 font-mono text-slate-400">{req.request_time}</td>
-                        <td className="px-4 py-2.5 font-bold text-white">{req.executive_name}</td>
-                        <td className="px-4 py-2.5 text-slate-300">{req.email_subject || 'Sin asunto'}</td>
-                        <td className="px-4 py-2.5 text-right">
-                          {req.file_url ? (
-                            <a
-                              href={req.file_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center space-x-1 text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 px-2.5 py-1 rounded text-[11px] font-bold transition"
-                            >
-                              <span>📧</span>
-                              <span>Ver / Abrir Correo</span>
-                            </a>
-                          ) : (
-                            <span className="text-slate-600 text-[10px]">Sin enlace</span>
-                          )}
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {filteredLogsList.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="text-center py-6 text-slate-500">
+                          No hay gestiones registradas.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredLogsList.map((log) => (
+                        <tr key={log.id} className="hover:bg-[#1a2232]/50 transition">
+                          <td className="px-4 py-3 font-mono text-slate-400 text-[11px]">
+                            {new Date(log.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-white">
+                            [{formatCode(log.client?.code)}] {log.client?.company_name}
+                          </td>
+                          <td className="px-4 py-3 text-slate-300 font-semibold">
+                            {log.executive_name}
+                          </td>
+                          <td className="px-4 py-3 text-slate-300 max-w-md">
+                            {log.detail}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
 
-        </div>
+            {/* PARTE 3: GRÁFICA ESTADÍSTICA Y DASHBOARD DE GESTIONES USEND */}
+            <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/60 pb-4">
+                <div>
+                  <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center space-x-2">
+                    <span>3️⃣</span>
+                    <span>Gráfica Estadísticas Usend</span>
+                  </h2>
+                  <p className="text-[11px] text-slate-400">Consolidado de solicitudes enviadas a Usend por periodo de tiempo</p>
+                </div>
+
+                <div className="flex items-center space-x-1 bg-[#1a2232] p-1 rounded-lg border border-slate-700/60">
+                  {(['day', 'week', 'month', 'quarter', 'semester', 'year'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTimeFilter(t)}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md capitalize transition ${
+                        timeFilter === t
+                          ? 'bg-amber-600 text-white shadow'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {t === 'day' ? 'Día' : t === 'week' ? 'Semana' : t === 'month' ? 'Mes' : t === 'quarter' ? 'Trimestre' : t === 'semester' ? 'Semestre' : 'Año'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                <div className="bg-[#121824] p-6 rounded-xl border border-slate-800/60 text-center">
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">
+                    Total Solicitudes ({timeFilter.toUpperCase()})
+                  </span>
+                  <span className="text-5xl font-extrabold text-white">
+                    {getFilteredUsendCount()}
+                  </span>
+                  <p className="text-[11px] text-slate-400 mt-2">Registros acumulados en el periodo seleccionado</p>
+                </div>
+
+                <div className="md:col-span-2 bg-[#121824] p-6 rounded-xl border border-slate-800/60 space-y-4">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-slate-300">Volumen de Actividad Usend</span>
+                    <span className="font-mono text-amber-400">{usendRequests.length} Solicitudes Históricas Totales</span>
+                  </div>
+
+                  <div className="w-full bg-slate-800 h-6 rounded-full overflow-hidden flex">
+                    <div
+                      className="bg-amber-500 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-black"
+                      style={{ width: `${Math.min(100, (getFilteredUsendCount() / (usendRequests.length || 1)) * 100)}%` }}
+                    >
+                      {Math.round((getFilteredUsendCount() / (usendRequests.length || 1)) * 100)}%
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-6 gap-2 text-center text-[10px] font-semibold text-slate-400">
+                    <div>Día</div>
+                    <div>Semana</div>
+                    <div>Mes</div>
+                    <div>Trimestre</div>
+                    <div>Semestre</div>
+                    <div>Año</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* TABLA USEND */}
+              <div className="space-y-3 pt-2">
+                <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Historial de Solicitudes Registradas</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300 divide-y divide-slate-800/80">
+                    <thead className="bg-[#1a2232] text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+                      <tr>
+                        <th className="px-4 py-2.5">Fecha</th>
+                        <th className="px-4 py-2.5">Hora</th>
+                        <th className="px-4 py-2.5">Ejecutiva</th>
+                        <th className="px-4 py-2.5">Asunto / Referencia</th>
+                        <th className="px-4 py-2.5 text-right">Correo / Enlace</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {usendRequests.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-4 text-slate-500">
+                            No hay solicitudes registradas a Usend.
+                          </td>
+                        </tr>
+                      ) : (
+                        usendRequests.map((req) => (
+                          <tr key={req.id} className="hover:bg-[#1a2232]/50 transition">
+                            <td className="px-4 py-2.5 font-mono text-amber-400">{req.request_date}</td>
+                            <td className="px-4 py-2.5 font-mono text-slate-400">{req.request_time}</td>
+                            <td className="px-4 py-2.5 font-bold text-white">{req.executive_name}</td>
+                            <td className="px-4 py-2.5 text-slate-300">{req.email_subject || 'Sin asunto'}</td>
+                            <td className="px-4 py-2.5 text-right">
+                              {req.file_url ? (
+                                <a
+                                  href={req.file_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center space-x-1 text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 px-2.5 py-1 rounded text-[11px] font-bold transition"
+                                >
+                                  <span>📧</span>
+                                  <span>Ver / Abrir Correo</span>
+                                </a>
+                              ) : (
+                                <span className="text-slate-600 text-[10px]">Sin enlace</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* SUBMÓDULO 2: DASHBOARD DE GESTIONES */}
+        {activeTab === 'dashboard_gestiones' && (
+          <div className="space-y-6">
+            
+            {/* KPI GENERALES */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg text-center space-y-1">
+                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Total Gestiones Registradas</span>
+                <p className="text-4xl font-extrabold text-white">{logs.length}</p>
+                <p className="text-[11px] text-slate-400">Gestiones acumuladas de ejecutivas</p>
+              </div>
+
+              <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg text-center space-y-1">
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Clientes Atendidos</span>
+                <p className="text-4xl font-extrabold text-white">{getLogsByClient().length}</p>
+                <p className="text-[11px] text-slate-400">Clientes únicos con gestiones</p>
+              </div>
+
+              <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg text-center space-y-1">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Ejecutivas Activas</span>
+                <p className="text-4xl font-extrabold text-white">{getLogsByExecutive().length}</p>
+                <p className="text-[11px] text-slate-400">Ejecutivas con registros en bitácora</p>
+              </div>
+            </div>
+
+            {/* GRÁFICAS DE DISTRIBUCIÓN POR EJECUTIVA Y CLIENTES TOP */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* DISTRIBUCIÓN POR EJECUTIVA */}
+              <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+                <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                  📊 Gestiones por Ejecutiva
+                </h2>
+                <div className="space-y-3">
+                  {getLogsByExecutive().length === 0 ? (
+                    <p className="text-slate-500 text-xs">Sin gestiones para contabilizar.</p>
+                  ) : (
+                    getLogsByExecutive().map((exec) => {
+                      const percentage = Math.round((exec.count / (logs.length || 1)) * 100)
+                      return (
+                        <div key={exec.name} className="space-y-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-slate-200">{exec.name}</span>
+                            <span className="text-indigo-400 font-bold">{exec.count} gestiones ({percentage}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                            <div
+                              className="bg-indigo-500 h-full transition-all duration-500"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* TOP 5 CLIENTES MÁS GESTIONADOS */}
+              <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
+                <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                  🏆 Top 5 Clientes con Mayor Interacción
+                </h2>
+                <div className="space-y-3">
+                  {getLogsByClient().length === 0 ? (
+                    <p className="text-slate-500 text-xs">Sin registros de clientes.</p>
+                  ) : (
+                    getLogsByClient().map(([clientName, count]) => {
+                      const percentage = Math.round((count / (logs.length || 1)) * 100)
+                      return (
+                        <div key={clientName} className="space-y-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-slate-200 truncate max-w-xs">{clientName}</span>
+                            <span className="text-emerald-400 font-bold">{count} gestiones ({percentage}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                            <div
+                              className="bg-emerald-500 h-full transition-all duration-500"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        )}
 
       </div>
     </div>
