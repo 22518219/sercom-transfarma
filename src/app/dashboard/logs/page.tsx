@@ -40,9 +40,9 @@ export default function LogsPage() {
   const [selectedClient, setSelectedClient] = useState('')
   const [clientDetail, setClientDetail] = useState('')
 
-  // Parte 2: Estados Registro Usend
-  const [usendDate, setUsendDate] = useState(new Date().toISOString().split('T')[0])
-  const [usendTime, setUsendTime] = useState(new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }))
+  // Parte 2: Estados Registro Usend (inicializados vacíos para evitar error de SSR/Prerender)
+  const [usendDate, setUsendDate] = useState('')
+  const [usendTime, setUsendTime] = useState('')
   const [usendSubject, setUsendSubject] = useState('')
   const [usendFile, setUsendFile] = useState<File | null>(null)
   const [uploadingFile, setUploadingFile] = useState(false)
@@ -54,6 +54,11 @@ export default function LogsPage() {
   const supabase = createClient()
 
   useEffect(() => {
+    // Establecer fecha y hora iniciales solo en el cliente
+    const now = new Date()
+    setUsendDate(now.toISOString().split('T')[0])
+    setUsendTime(now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }))
+
     fetchInitialData()
   }, [])
 
