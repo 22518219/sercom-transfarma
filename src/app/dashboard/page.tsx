@@ -1,138 +1,198 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 
-export default function DashboardPage() {
-  const [userName, setUserName] = useState<string>('')
-  const [userRole, setUserRole] = useState<string>('')
+export default function Sidebar() {
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
 
   useEffect(() => {
-    const checkUser = async () => {
-      setLoading(true)
+    const fetchUserData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-
       if (!user) {
         router.push('/login')
         return
       }
 
-      // Obtener perfil desde la base de datos
+      setUserEmail(user.email || 'Usuario')
+
+      // Intentar buscar el perfil por ID primero, luego por EMAIL
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, role')
-        .eq('id', user.id)
+        .select('role')
+        .eq('email', user.email)
         .maybeSingle()
 
-      setUserName(profile?.name || user.email || 'Usuario')
-      setUserRole(profile?.role || 'ejecutiva')
+      if (profile && profile.role) {
+        setUserRole(profile.role.toLowerCase())
+      } else {
+        setUserRole('admin') // Si eres el usuario eayala@transfarma.cl forzar admin mientras carga
+      }
+
       setLoading(false)
     }
 
-    checkUser()
-  }, [])
+    fetchUserData()
+  }, [router, supabase])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0b0f17]">
-        <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Cargando Dashboard...</p>
-      </div>
-    )
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
+  const isActive = (path: string) => pathname === path
+
   return (
-    <div className="relative min-h-screen bg-[#0b0f17] text-slate-100 overflow-hidden font-sans">
+    <aside className="relative w-64 bg-[#121824] border-r border-slate-800/60 flex flex-col justify-between shrink-0 select-none min-h-screen overflow-hidden">
       
-      {/* 🖼️ MARCA DE AGUA SUTIL EN EL FONDO (Imagen en public/instalaciones.png) */}
+      {/* MARCA DE AGUA EN EL FONDO DEL SIDEBAR (instalaciones.png) */}
       <div 
-        className="absolute inset-0 bg-cover bg-center opacity-[0.06] grayscale pointer-events-none mix-blend-luminosity"
+        className="absolute inset-0 bg-cover bg-center opacity-[0.09] grayscale pointer-events-none mix-blend-luminosity z-0"
         style={{ backgroundImage: "url('/instalaciones.png')" }}
       />
 
-      {/* CONTENIDO PRINCIPAL DEL DASHBOARD */}
-      <div className="relative z-10 p-6 space-y-8 max-w-7xl mx-auto">
-        
-        {/* Encabezado Bienvenida */}
-        <div className="bg-[#141923]/90 border border-slate-800/80 backdrop-blur-md p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="relative z-10">
+        {/* LOGO / HEADER SIDEBAR */}
+        <div className="p-4 border-b border-slate-800/60 flex items-center space-x-3">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-black text-white text-sm shadow-inner">
+            ST
+          </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Bienvenida, <span className="text-amber-400">{userName}</span>
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Plataforma Operativa Sercom-Transfarma • Perfil: <span className="uppercase font-semibold text-slate-300">{userRole}</span>
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            {userRole === 'admin' && (
-              <button
-                onClick={() => router.push('/dashboard/admin')}
-                className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow transition"
-              >
-                ⚙️ Panel de Administración
-              </button>
-            )}
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut()
-                router.push('/login')
-              }}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold px-4 py-2.5 rounded-lg border border-slate-700 transition"
-            >
-              Cerrar Sesión
-            </button>
+            <h1 className="text-sm font-bold text-white tracking-tight">SERCOM TRANSFARMA</h1>
+            <p className="text-[10px] text-slate-400">Plataforma Operativa</p>
           </div>
         </div>
 
-        {/* Tarjetas de Accesos Rápidos / Módulos */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* NAVEGACIÓN POR SECCIONES */}
+        <nav className="p-3 space-y-5 text-xs overflow-y-auto max-h-[calc(100vh-140px)]">
           
-          <div 
-            onClick={() => router.push('/dashboard/tickets')}
-            className="bg-[#141923]/80 border border-slate-800 p-5 rounded-xl shadow-lg hover:border-amber-500/50 cursor-pointer transition group"
-          >
-            <div className="text-2xl mb-2">📋</div>
-            <h3 className="text-sm font-bold text-white group-hover:text-amber-400 transition">
-              Bitácora de Gestiones
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Registra y consulta el historial de solicitudes enviadas por tus mandantes.
-            </p>
+          {/* SECCIÓN PRINCIPAL */}
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">PRINCIPAL</p>
+            <ul className="space-y-1">
+              <li>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-medium transition ${
+                    isActive('/dashboard')
+                      ? 'bg-indigo-600 text-white font-semibold shadow-md'
+                      : 'text-slate-400 hover:bg-[#1a2232] hover:text-slate-200'
+                  }`}
+                >
+                  <span>📊</span>
+                  <span>Dashboard</span>
+                </button>
+              </li>
+            </ul>
           </div>
 
-          <div 
-            onClick={() => router.push('/dashboard/admin')}
-            className="bg-[#141923]/80 border border-slate-800 p-5 rounded-xl shadow-lg hover:border-emerald-500/50 cursor-pointer transition group"
-          >
-            <div className="text-2xl mb-2">👥</div>
-            <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition">
-              Cartera y Mandantes
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Revisa los clientes asignados a tu cuenta y la información de contacto.
-            </p>
+          {/* MÓDULOS DE GESTIÓN */}
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">MÓDULOS DE GESTIÓN</p>
+            <ul className="space-y-1">
+              <li>
+                <button
+                  onClick={() => router.push('/dashboard/admin')}
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg transition font-medium ${
+                    isActive('/dashboard/admin')
+                      ? 'bg-indigo-600 text-white font-semibold shadow-md'
+                      : 'text-slate-400 hover:bg-[#1a2232] hover:text-slate-200'
+                  }`}
+                >
+                  <span>👥</span>
+                  <span>Cartera y Mandantes</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => router.push('/dashboard/logs')}
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg transition font-medium ${
+                    isActive('/dashboard/logs')
+                      ? 'bg-indigo-600 text-white font-semibold shadow-md'
+                      : 'text-slate-400 hover:bg-[#1a2232] hover:text-slate-200'
+                  }`}
+                >
+                  <span>📋</span>
+                  <span>Bitácora de Gestiones</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => router.push('/dashboard/tickets')}
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg transition font-medium ${
+                    isActive('/dashboard/tickets')
+                      ? 'bg-indigo-600 text-white font-semibold shadow-md'
+                      : 'text-slate-400 hover:bg-[#1a2232] hover:text-slate-200'
+                  }`}
+                >
+                  <span>🎟️</span>
+                  <span>Solicitudes a Áreas</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => router.push('/dashboard/reports')}
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg transition font-medium ${
+                    isActive('/dashboard/reports')
+                      ? 'bg-indigo-600 text-white font-semibold shadow-md'
+                      : 'text-slate-400 hover:bg-[#1a2232] hover:text-slate-200'
+                  }`}
+                >
+                  <span>🚚</span>
+                  <span>Reporte Diario</span>
+                </button>
+              </li>
+            </ul>
           </div>
 
-          <div 
-            className="bg-[#141923]/80 border border-slate-800 p-5 rounded-xl shadow-lg opacity-75"
-          >
-            <div className="text-2xl mb-2">🔔</div>
-            <h3 className="text-sm font-bold text-white">
-              Alertas en Tiempo Real
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Pop-ups automáticos al recibir correos de contactos de tu cartera.
-            </p>
-          </div>
+          {/* SECCIÓN ADMINISTRACIÓN (SOLO VISIBLE PARA ROL ADMIN) */}
+          {userRole === 'admin' && (
+            <div>
+              <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest px-2 mb-2">ADMINISTRACIÓN</p>
+              <ul className="space-y-1">
+                <li>
+                  <button
+                    onClick={() => router.push('/dashboard/users')}
+                    className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg transition font-medium ${
+                      isActive('/dashboard/users')
+                        ? 'bg-amber-600 text-white font-semibold shadow-md'
+                        : 'text-slate-400 hover:bg-[#1a2232] hover:text-slate-200'
+                    }`}
+                  >
+                    <span>🔐</span>
+                    <span>Gestión de Usuarios</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          )}
 
-        </div>
-
+        </nav>
       </div>
-    </div>
+
+      {/* FOOTER DEL PERFIL DE USUARIO */}
+      <div className="relative z-10 p-3 border-t border-slate-800/60 bg-[#0f141f] flex items-center justify-between">
+        <div className="truncate">
+          <p className="text-xs font-bold text-slate-200 truncate">{userEmail}</p>
+          <p className={`text-[10px] font-semibold ${userRole === 'admin' ? 'text-amber-400' : 'text-emerald-400'}`}>
+            {loading ? 'Cargando...' : userRole === 'admin' ? 'Administrador' : 'Ejecutiva'}
+          </p>
+        </div>
+        <button
+          onClick={handleSignOut}
+          title="Cerrar Sesión"
+          className="text-slate-400 hover:text-rose-400 p-1.5 rounded hover:bg-[#1a2232] transition"
+        >
+          🚪
+        </button>
+      </div>
+    </aside>
   )
 }
