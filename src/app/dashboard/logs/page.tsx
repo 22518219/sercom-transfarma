@@ -17,6 +17,7 @@ interface LogEntry {
   executive_name: string
   detail: string
   file_url?: string
+  gmail_url?: string
   client?: Client
 }
 
@@ -28,6 +29,7 @@ interface UsendEntry {
   executive_name: string
   email_subject?: string
   file_url?: string
+  gmail_url?: string
 }
 
 export default function LogsPage() {
@@ -37,17 +39,19 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(true)
   const [currentUserName, setCurrentUserName] = useState('')
 
-  // Parte 1: Estados Registro Cliente & Drag and Drop
+  // Parte 1: Estados Registro Cliente
   const [selectedClient, setSelectedClient] = useState('')
   const [clientDetail, setClientDetail] = useState('')
+  const [clientGmailUrl, setClientGmailUrl] = useState('')
   const [clientFile, setClientFile] = useState<File | null>(null)
   const [isDraggingClient, setIsDraggingClient] = useState(false)
   const [uploadingClientFile, setUploadingClientFile] = useState(false)
 
-  // Parte 2: Estados Registro Usend & Drag and Drop
+  // Parte 2: Estados Registro Usend
   const [usendDate, setUsendDate] = useState('')
   const [usendTime, setUsendTime] = useState('')
   const [usendSubject, setUsendSubject] = useState('')
+  const [usendGmailUrl, setUsendGmailUrl] = useState('')
   const [usendFile, setUsendFile] = useState<File | null>(null)
   const [isDraggingUsend, setIsDraggingUsend] = useState(false)
   const [uploadingUsendFile, setUploadingUsendFile] = useState(false)
@@ -120,8 +124,7 @@ export default function LogsPage() {
     e.preventDefault()
     setIsDraggingClient(false)
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0]
-      setClientFile(droppedFile)
+      setClientFile(e.dataTransfer.files[0])
     }
   }
 
@@ -143,7 +146,7 @@ export default function LogsPage() {
     }
   }
 
-  // GUARDAR GESTIÓN CLIENTE CON ADJUNTO
+  // GUARDAR GESTIÓN CLIENTE
   const handleSaveClientLog = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedClient || !clientDetail.trim()) {
@@ -180,6 +183,7 @@ export default function LogsPage() {
           channel: 'General',
           detail: clientDetail.trim(),
           summary: clientDetail.trim(),
+          gmail_url: clientGmailUrl.trim() || null,
           file_url: fileUrl || null
         }
       ])
@@ -192,6 +196,7 @@ export default function LogsPage() {
       alert('Gestión de cliente registrada con éxito.')
       setSelectedClient('')
       setClientDetail('')
+      setClientGmailUrl('')
       setClientFile(null)
       fetchInitialData()
     }
@@ -233,6 +238,7 @@ export default function LogsPage() {
           user_id: user?.id,
           executive_name: currentUserName,
           email_subject: usendSubject.trim() || 'Solicitud a Usend',
+          gmail_url: usendGmailUrl.trim() || null,
           file_url: fileUrl || null
         }
       ])
@@ -244,6 +250,7 @@ export default function LogsPage() {
     } else {
       alert('Solicitud a Usend registrada correctamente.')
       setUsendSubject('')
+      setUsendGmailUrl('')
       setUsendFile(null)
       fetchInitialData()
     }
@@ -333,7 +340,21 @@ export default function LogsPage() {
                 />
               </div>
 
-              {/* ZONA DE ARRASTRAR Y SOLTAR CORREO / PDF CLIENTE */}
+              {/* ENLACE DIRECTO DE GMAIL */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                  Enlace Directo de Gmail (Opcional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://mail.google.com/mail/u/0/#search/..."
+                  value={clientGmailUrl}
+                  onChange={(e) => setClientGmailUrl(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* ARRASTRAR Y SOLTAR ARCHIVO */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                   Adjuntar o Arrastrar Correo / PDF (.eml, .msg, .pdf)
@@ -342,7 +363,7 @@ export default function LogsPage() {
                   onDragOver={handleClientDragOver}
                   onDragLeave={handleClientDragLeave}
                   onDrop={handleClientDrop}
-                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition ${
+                  className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition ${
                     isDraggingClient
                       ? 'border-indigo-400 bg-indigo-950/20'
                       : clientFile
@@ -355,9 +376,7 @@ export default function LogsPage() {
                     id="client-file-upload"
                     className="hidden"
                     onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setClientFile(e.target.files[0])
-                      }
+                      if (e.target.files && e.target.files[0]) setClientFile(e.target.files[0])
                     }}
                   />
                   <label htmlFor="client-file-upload" className="cursor-pointer space-y-1 block">
@@ -370,9 +389,7 @@ export default function LogsPage() {
                     ) : (
                       <div className="space-y-1">
                         <span className="text-xl">📥</span>
-                        <p className="text-xs font-medium text-slate-300">
-                          Arrastra tu correo o PDF aquí
-                        </p>
+                        <p className="text-xs font-medium text-slate-300">Arrastra tu correo (.eml) o PDF aquí</p>
                         <p className="text-[10px] text-slate-500">o haz clic para explorar tu equipo</p>
                       </div>
                     )}
@@ -390,7 +407,7 @@ export default function LogsPage() {
             </form>
           </div>
 
-          {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND CON DRAG & DROP */}
+          {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND */}
           <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
             <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
               <span>2️⃣</span>
@@ -433,7 +450,21 @@ export default function LogsPage() {
                 />
               </div>
 
-              {/* ZONA DE ARRASTRAR Y SOLTAR USEND */}
+              {/* ENLACE DIRECTO DE GMAIL */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                  Enlace Directo de Gmail (Opcional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://mail.google.com/mail/u/0/#search/..."
+                  value={usendGmailUrl}
+                  onChange={(e) => setUsendGmailUrl(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {/* ARRASTRAR Y SOLTAR USEND */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                   Arrastrar Correo / Comprobante (.eml, .msg, .pdf)
@@ -442,7 +473,7 @@ export default function LogsPage() {
                   onDragOver={handleUsendDragOver}
                   onDragLeave={handleUsendDragLeave}
                   onDrop={handleUsendDrop}
-                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition ${
+                  className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition ${
                     isDraggingUsend
                       ? 'border-emerald-400 bg-emerald-950/20'
                       : usendFile
@@ -471,9 +502,7 @@ export default function LogsPage() {
                     ) : (
                       <div className="space-y-1">
                         <span className="text-xl">📥</span>
-                        <p className="text-xs font-medium text-slate-300">
-                          Arrastra tu correo desde Outlook/Gmail aquí
-                        </p>
+                        <p className="text-xs font-medium text-slate-300">Arrastra tu correo desde Outlook/Gmail aquí</p>
                         <p className="text-[10px] text-slate-500">o haz clic para explorar tu equipo</p>
                       </div>
                     )}
@@ -493,15 +522,15 @@ export default function LogsPage() {
 
         </div>
 
-        {/* PARTE 3: HISTORIAL Y ESTADÍSTICAS */}
+        {/* PARTE 3: DASHBOARD ESTADÍSTICO Y REGISTROS */}
         <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/60 pb-4">
             <div>
               <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center space-x-2">
                 <span>3️⃣</span>
-                <span>Gráfica Estadísticas Usend</span>
+                <span>Gráfica Estadísticas y Métricas</span>
               </h2>
-              <p className="text-[11px] text-slate-400">Consolidado de solicitudes enviadas a Usend por periodo de tiempo</p>
+              <p className="text-[11px] text-slate-400">Consolidado de actividad y solicitudes registradas</p>
             </div>
 
             <div className="flex items-center space-x-1 bg-[#1a2232] p-1 rounded-lg border border-slate-700/60">
@@ -521,9 +550,43 @@ export default function LogsPage() {
             </div>
           </div>
 
-          {/* HISTORIAL DE GESTIONES POR CLIENTE (INCLUYE ADJUNTO) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            <div className="bg-[#121824] p-6 rounded-xl border border-slate-800/60 text-center">
+              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">
+                Solicitudes Usend ({timeFilter.toUpperCase()})
+              </span>
+              <span className="text-5xl font-extrabold text-white">
+                {getFilteredUsendCount()}
+              </span>
+              <p className="text-[11px] text-slate-400 mt-2">Registros en el periodo seleccionado</p>
+            </div>
+
+            <div className="md:col-span-2 bg-[#121824] p-6 rounded-xl border border-slate-800/60 space-y-4">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-300">Resumen General de Actividad</span>
+                <span className="font-mono text-amber-400">{logs.length} Gestiones / {usendRequests.length} Usend</span>
+              </div>
+
+              <div className="w-full bg-slate-800 h-6 rounded-full overflow-hidden flex">
+                <div
+                  className="bg-indigo-500 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-white"
+                  style={{ width: `${(logs.length / Math.max(1, logs.length + usendRequests.length)) * 100}%` }}
+                >
+                  Gestiones ({logs.length})
+                </div>
+                <div
+                  className="bg-emerald-500 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-white"
+                  style={{ width: `${(usendRequests.length / Math.max(1, logs.length + usendRequests.length)) * 100}%` }}
+                >
+                  Usend ({usendRequests.length})
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* TABLA 1: HISTORIAL DE GESTIONES POR CLIENTE */}
           <div className="space-y-3 pt-2">
-            <h3 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Historial de Gestiones por Cliente</h3>
+            <h3 className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Historial de Gestiones por Cliente</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-300 divide-y divide-slate-800/80">
                 <thead className="bg-[#1a2232] text-slate-400 font-bold uppercase text-[10px] tracking-wider">
@@ -532,7 +595,7 @@ export default function LogsPage() {
                     <th className="px-4 py-2.5">Cliente</th>
                     <th className="px-4 py-2.5">Ejecutiva</th>
                     <th className="px-4 py-2.5">Detalle</th>
-                    <th className="px-4 py-2.5 text-right">Adjunto</th>
+                    <th className="px-4 py-2.5 text-right">Adjunto / Gmail</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -553,18 +616,93 @@ export default function LogsPage() {
                         </td>
                         <td className="px-4 py-2.5 font-bold text-white">{log.executive_name}</td>
                         <td className="px-4 py-2.5 text-slate-300">{log.detail}</td>
-                        <td className="px-4 py-2.5 text-right">
-                          {log.file_url ? (
+                        <td className="px-4 py-2.5 text-right space-x-2">
+                          {log.file_url && (
                             <a
                               href={log.file_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center space-x-1 text-indigo-400 hover:text-indigo-300 bg-indigo-950/40 border border-indigo-800/50 px-2.5 py-1 rounded text-[11px] font-bold transition"
+                              className="inline-flex items-center space-x-1 text-indigo-400 hover:text-indigo-300 bg-indigo-950/40 border border-indigo-800/50 px-2 py-0.5 rounded text-[10px] font-bold transition"
                             >
-                              <span>📧</span>
-                              <span>Ver Correo</span>
+                              <span>📎</span>
+                              <span>Archivo</span>
                             </a>
-                          ) : (
+                          )}
+                          {log.gmail_url && (
+                            <a
+                              href={log.gmail_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center space-x-1 text-red-400 hover:text-red-300 bg-red-950/40 border border-red-800/50 px-2 py-0.5 rounded text-[10px] font-bold transition"
+                            >
+                              <span>✉️</span>
+                              <span>Gmail</span>
+                            </a>
+                          )}
+                          {!log.file_url && !log.gmail_url && (
+                            <span className="text-slate-600 text-[10px]">Sin adjunto</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* TABLA 2: HISTORIAL DE SOLICITUDES USEND */}
+          <div className="space-y-3 pt-4 border-t border-slate-800/60">
+            <h3 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Historial de Solicitudes a Usend</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300 divide-y divide-slate-800/80">
+                <thead className="bg-[#1a2232] text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="px-4 py-2.5">Fecha / Hora</th>
+                    <th className="px-4 py-2.5">Ejecutiva</th>
+                    <th className="px-4 py-2.5">Asunto / Referencia</th>
+                    <th className="px-4 py-2.5 text-right">Adjunto / Gmail</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {usendRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="text-center py-4 text-slate-500">
+                        No hay solicitudes registradas a Usend.
+                      </td>
+                    </tr>
+                  ) : (
+                    usendRequests.map((req) => (
+                      <tr key={req.id} className="hover:bg-[#1a2232]/50 transition">
+                        <td className="px-4 py-2.5 font-mono text-emerald-400">
+                          {req.request_date} {req.request_time}
+                        </td>
+                        <td className="px-4 py-2.5 font-bold text-white">{req.executive_name}</td>
+                        <td className="px-4 py-2.5 text-slate-300">{req.email_subject || 'Sin asunto'}</td>
+                        <td className="px-4 py-2.5 text-right space-x-2">
+                          {req.file_url && (
+                            <a
+                              href={req.file_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center space-x-1 text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 px-2 py-0.5 rounded text-[10px] font-bold transition"
+                            >
+                              <span>📎</span>
+                              <span>Archivo</span>
+                            </a>
+                          )}
+                          {req.gmail_url && (
+                            <a
+                              href={req.gmail_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center space-x-1 text-red-400 hover:text-red-300 bg-red-950/40 border border-red-800/50 px-2 py-0.5 rounded text-[10px] font-bold transition"
+                            >
+                              <span>✉️</span>
+                              <span>Gmail</span>
+                            </a>
+                          )}
+                          {!req.file_url && !req.gmail_url && (
                             <span className="text-slate-600 text-[10px]">Sin adjunto</span>
                           )}
                         </td>
