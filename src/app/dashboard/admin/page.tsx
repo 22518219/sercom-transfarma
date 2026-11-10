@@ -32,7 +32,7 @@ export default function AdminPortfolioPage() {
   const [assignments, setAssignments] = useState<UserClient[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Formulario nueva ejecutiva
+  // Formulario nuevo usuario / ejecutiva
   const [execName, setExecName] = useState('')
   const [execEmail, setExecEmail] = useState('')
   const [execPassword, setExecPassword] = useState('')
@@ -103,7 +103,7 @@ export default function AdminPortfolioPage() {
     setLoading(false)
   }
 
-  // Registrar una nueva ejecutiva invocando la API Route sin perder la sesión del Admin
+  // Registrar usuario mediante API Route (Mantiene la sesión de Admin activa)
   const handleCreateExecutive = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!execEmail || !execPassword || !execName) {
@@ -114,7 +114,6 @@ export default function AdminPortfolioPage() {
     setCreatingExec(true)
 
     try {
-      // Petición limpia a la API Route sin pasar por el Auth del navegador
       const response = await fetch('/api/admin/create-executive', {
         method: 'POST',
         headers: {
@@ -124,6 +123,7 @@ export default function AdminPortfolioPage() {
           email: execEmail,
           password: execPassword,
           name: execName,
+          role: 'ejecutiva',
         }),
       })
 
@@ -131,15 +131,14 @@ export default function AdminPortfolioPage() {
 
       if (!response.ok) {
         alert('Error al crear ejecutiva: ' + (data.error || 'Ocurrió un error inesperado.'))
+        setCreatingExec(false)
         return
       }
 
-      alert(`Ejecutiva "${execName}" creada exitosamente sin cerrar tu sesión.`)
+      alert(`Ejecutiva "${execName}" creada exitosamente. Tu sesión se mantiene activa.`)
       setExecName('')
       setExecEmail('')
       setExecPassword('')
-      
-      // Recargar la lista de ejecutivas
       fetchData()
     } catch (err: any) {
       alert('Error de conexión al crear ejecutiva: ' + err.message)
@@ -184,13 +183,13 @@ export default function AdminPortfolioPage() {
       return
     }
 
-    // Eliminar asignación previa si ya existe para este cliente
+    // Eliminar asignación previa si existe
     await supabase
       .from('user_clients')
       .delete()
       .eq('client_id', selectedClient)
 
-    // Crear la nueva asignación
+    // Crear nueva asignación
     const { error } = await supabase
       .from('user_clients')
       .insert([{ user_id: selectedExec, client_id: selectedClient }])

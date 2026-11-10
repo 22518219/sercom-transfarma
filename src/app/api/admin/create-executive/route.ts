@@ -9,12 +9,12 @@ export async function POST(request: Request) {
 
     if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
-        { error: 'Faltan variables de entorno en el servidor.' },
+        { error: 'Faltan variables de entorno de Supabase en el servidor.' },
         { status: 500 }
       )
     }
 
-    // Cliente del servidor con sesión totalmente deshabilitada para no interferir con la sesión del Admin
+    // Inicialización aislada para no guardar sesión ni persistir cookies
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         autoRefreshToken: false,
@@ -23,17 +23,19 @@ export async function POST(request: Request) {
       },
     })
 
-    const { email, password, name } = await request.json()
+    const { email, password, name, role } = await request.json()
 
     if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'Todos los campos son obligatorios (nombre, correo y contraseña).' },
+        { error: 'Todos los campos (nombre, correo y contraseña) son requeridos.' },
         { status: 400 }
       )
     }
 
-    // 1. Crear usuario directamente en Supabase Auth mediante admin API
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const assignedRole = role || 'ejecutiva'
+
+    // 1. Crear usuario mediante la API de administración de Supabase Auth
+    const { data: userData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -44,19 +46,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    if (!authData.user) {
+    if (!userData.user) {
       return NextResponse.json({ error: 'No se pudo generar el usuario.' }, { status: 500 })
     }
 
-    // 2. Registrar el perfil en public.profiles
+    // 2. Insertar/Actualizar el perfil en public.profiles con el rol asignado
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert([
         {
-          id: authData.user.id,
+          id: userData.user.id,
           email,
           name,
-          role: 'ejecutiva',
+          role: assignedRole,
         },
       ])
 
@@ -64,8 +66,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: profileError.message }, { status: 400 })
     }
 
-    return NextResponse.json({ message: 'Ejecutiva creada exitosamente' }, { status: 200 })
+    return NextResponse.json({ message: 'Usuario creado exitosamente' }, { status: 200 })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Error del servidor' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Error interno del servidor' }, { status: 500 })
   }
 }
