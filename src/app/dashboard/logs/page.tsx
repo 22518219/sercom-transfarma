@@ -114,6 +114,149 @@ export default function LogsPage() {
 
   const formatCode = (code?: number) => code ? String(code).padStart(3, '0') : '---'
 
+  // FUNCIÓN DESCARGA EXCEL MULTI-PESTAÑA (.XLS)
+  const handleExportExcel = () => {
+    if (logs.length === 0 && usendRequests.length === 0) {
+      alert('No hay datos disponibles para exportar.')
+      return
+    }
+
+    const currentDate = new Date().toLocaleDateString('es-CL')
+
+    const excelXML = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>Sercom-Transfarma</Author>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Color="#334155"/>
+  </Style>
+  <Style ss:ID="HeaderTitle">
+   <Font ss:FontName="Segoe UI" ss:Size="14" ss:Color="#0F172A" ss:Bold="1"/>
+  </Style>
+  <Style ss:ID="SubTitle">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#64748B"/>
+  </Style>
+  <Style ss:ID="TableHeader">
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#334155"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#334155"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#334155"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#334155"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Interior ss:Color="#0F172A" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="TableCell">
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#334155"/>
+  </Style>
+  <Style ss:ID="TableCellCode">
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+   </Borders>
+   <Font ss:FontName="Courier New" ss:Size="10" ss:Color="#2563EB" ss:Bold="1"/>
+  </Style>
+ </Styles>
+
+ <!-- PESTAÑA 1: GESTIONES POR EJECUTIVA -->
+ <Worksheet ss:Name="Gestiones por Ejecutiva">
+  <Table ss:ExpandedColumnCount="6">
+   <Column ss:Width="120"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="200"/>
+   <Column ss:Width="160"/>
+   <Column ss:Width="350"/>
+   <Column ss:Width="250"/>
+   <Row ss:Height="25">
+    <Cell ss:MergeAcross="5" ss:StyleID="HeaderTitle"><Data ss:Type="String">SERCOM-TRANSFARMA - REGISTRO DE GESTIONES POR EJECUTIVA</Data></Cell>
+   </Row>
+   <Row ss:Height="18">
+    <Cell ss:MergeAcross="5" ss:StyleID="SubTitle"><Data ss:Type="String">Fecha de exportación: ${currentDate} | Total registros: ${logs.length}</Data></Cell>
+   </Row>
+   <Row/>
+   <Row ss:Height="22">
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Fecha y Hora</Data></Cell>
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Cód. Cliente</Data></Cell>
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Cliente / Mandante</Data></Cell>
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Ejecutiva</Data></Cell>
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Detalle de la Gestión</Data></Cell>
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Enlace / Adjunto</Data></Cell>
+   </Row>
+   ${logs.map(l => `
+   <Row ss:Height="20">
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${new Date(l.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}</Data></Cell>
+    <Cell ss:StyleID="TableCellCode"><Data ss:Type="String">${formatCode(l.client?.code)}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(l.client?.company_name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(l.executive_name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(l.detail || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(l.file_url || l.gmail_url || 'Sin adjunto').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+   </Row>`).join('')}
+  </Table>
+ </Worksheet>
+
+ <!-- PESTAÑA 2: SOLICITUDES A USEND -->
+ <Worksheet ss:Name="Solicitudes a Usend">
+  <Table ss:ExpandedColumnCount="5">
+   <Column ss:Width="100"/>
+   <Column ss:Width="80"/>
+   <Column ss:Width="160"/>
+   <Column ss:Width="300"/>
+   <Column ss:Width="250"/>
+   <Row ss:Height="25">
+    <Cell ss:MergeAcross="4" ss:StyleID="HeaderTitle"><Data ss:Type="String">SERCOM-TRANSFARMA - REGISTRO DE SOLICITUDES A USEND</Data></Cell>
+   </Row>
+   <Row ss:Height="18">
+    <Cell ss:MergeAcross="4" ss:StyleID="SubTitle"><Data ss:Type="String">Fecha de exportación: ${currentDate} | Total solicitudes: ${usendRequests.length}</Data></Cell>
+   </Row>
+   <Row/>
+   <Row ss:Height="22">
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Fecha</Data></Cell>
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Hora</Data></Cell>
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Ejecutiva</Data></Cell>
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Asunto / Referencia</Data></Cell>
+    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Enlace / Adjunto</Data></Cell>
+   </Row>
+   ${usendRequests.map(r => `
+   <Row ss:Height="20">
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${r.request_date}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${r.request_time}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(r.executive_name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(r.email_subject || 'Sin asunto').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(r.file_url || r.gmail_url || 'Sin enlace').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+   </Row>`).join('')}
+  </Table>
+ </Worksheet>
+</Workbook>`
+
+    const blob = new Blob([excelXML], { type: 'application/vnd.ms-excel;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `Bitacora_Completa_Sercom_${new Date().toISOString().split('T')[0]}.xls`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   // EVENTOS DRAG & DROP CLIENTE
   const handleClientDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -286,18 +429,30 @@ export default function LogsPage() {
     <div className="min-h-screen bg-[#0b0f17] text-slate-200 p-6 font-sans space-y-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* ENCABEZADO */}
+        {/* ENCABEZADO CON BOTÓN DE EXCEL Y VOLVER */}
         <div className="flex justify-between items-center bg-[#121824] p-4 rounded-xl border border-slate-800/60 shadow-lg">
           <div>
             <h1 className="text-base font-bold text-white tracking-tight">Bitácora de Gestiones y Control Usend</h1>
             <p className="text-xs text-slate-400">Registro diario de interacciones corporativas y solicitudes a Usend</p>
           </div>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="bg-[#1a2232] hover:bg-slate-700 text-slate-300 text-xs font-semibold px-4 py-2 rounded-lg border border-slate-700/60 transition"
-          >
-            ← Volver al Dashboard
-          </button>
+          
+          <div className="flex items-center space-x-3">
+            {/* BOTÓN DE DESCARGA EXCEL MULTI-PESTAÑA */}
+            <button
+              onClick={handleExportExcel}
+              className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-lg border border-emerald-600/60 shadow flex items-center space-x-1.5 transition"
+            >
+              <span>📊</span>
+              <span>Descargar Reporte Excel (.xls)</span>
+            </button>
+
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="bg-[#1a2232] hover:bg-slate-700 text-slate-300 text-xs font-semibold px-4 py-2 rounded-lg border border-slate-700/60 transition"
+            >
+              ← Volver al Dashboard
+            </button>
+          </div>
         </div>
 
         {/* PARTE 1 Y PARTE 2 */}
