@@ -9,48 +9,42 @@ export async function POST(request: Request) {
 
     if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
-        { error: 'Faltan variables de entorno de Supabase en el servidor.' },
+        { error: 'Faltan variables de entorno en el servidor.' },
         { status: 500 }
       )
     }
 
-    // Inicialización aislada para no guardar sesión ni persistir cookies
+    // Instancia limpia y aislada por Petición (No usa cookies ni LocalStorage)
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
-        detectSessionInUrl: false,
-      },
+        detectSessionInUrl: false
+      }
     })
 
     const { email, password, name, role } = await request.json()
 
     if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'Todos los campos (nombre, correo y contraseña) son requeridos.' },
+        { error: 'Nombre, email y contraseña son obligatorios.' },
         { status: 400 }
       )
     }
 
-    const assignedRole = role || 'ejecutiva'
-
-    // 1. Crear usuario mediante la API de administración de Supabase Auth
+    // 1. Crear el usuario en Auth
     const { data: userData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { name },
+      user_metadata: { name }
     })
 
     if (authError) {
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    if (!userData.user) {
-      return NextResponse.json({ error: 'No se pudo generar el usuario.' }, { status: 500 })
-    }
-
-    // 2. Insertar/Actualizar el perfil en public.profiles con el rol asignado
+    // 2. Crear o actualizar el Perfil
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert([
@@ -58,16 +52,18 @@ export async function POST(request: Request) {
           id: userData.user.id,
           email,
           name,
-          role: assignedRole,
-        },
+          role: role || 'ejecutiva'
+        }
       ])
 
     if (profileError) {
       return NextResponse.json({ error: profileError.message }, { status: 400 })
     }
 
+    // Retorno limpio sin encabezados Set-Cookie
     return NextResponse.json({ message: 'Usuario creado exitosamente' }, { status: 200 })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Error interno del servidor' }, { status: 500 })
+
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Error en servidor' }, { status: 500 })
   }
 }

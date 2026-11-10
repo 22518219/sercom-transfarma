@@ -106,8 +106,9 @@ export default function AdminPortfolioPage() {
   // Registrar usuario mediante API Route (Mantiene la sesión de Admin activa)
   const handleCreateExecutive = async (e: React.FormEvent) => {
     e.preventDefault()
+
     if (!execEmail || !execPassword || !execName) {
-      alert('Por favor completa todos los campos de la ejecutiva.')
+      alert('Por favor completa todos los campos.')
       return
     }
 
@@ -123,25 +124,29 @@ export default function AdminPortfolioPage() {
           email: execEmail,
           password: execPassword,
           name: execName,
-          role: 'ejecutiva',
+          role: 'ejecutiva'
         }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        alert('Error al crear ejecutiva: ' + (data.error || 'Ocurrió un error inesperado.'))
-        setCreatingExec(false)
+        alert('Error al crear ejecutiva: ' + (data.error || 'Ocurrió un error.'))
         return
       }
 
-      alert(`Ejecutiva "${execName}" creada exitosamente. Tu sesión se mantiene activa.`)
+      alert(`Ejecutiva "${execName}" creada con éxito.`)
+      
+      // Resetear campos del formulario local
       setExecName('')
       setExecEmail('')
       setExecPassword('')
+
+      // Cargar nuevamente la tabla de datos de la base de datos (SIN refrescar la sesión auth)
       fetchData()
+
     } catch (err: any) {
-      alert('Error de conexión al crear ejecutiva: ' + err.message)
+      alert('Error de conexión: ' + err.message)
     } finally {
       setCreatingExec(false)
     }
