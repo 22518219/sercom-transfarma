@@ -3,50 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
+import { useRealtimeAlerts } from '../../hooks/useRealtimeAlerts'
+import RealtimeToast from '../../components/RealtimeToast'
 
 // COMPONENTE SIDEBAR
-function Sidebar() {
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [userRole, setUserRole] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const router = useRouter()
-  const pathname = usePathname()
-  const supabase = createClient()
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      setUserEmail(user.email || 'Usuario')
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('email', user.email)
-        .maybeSingle()
-
-      if (profile && profile.role) {
-        setUserRole(profile.role.toLowerCase())
-      } else {
-        setUserRole('admin')
-      }
-
-      setLoading(false)
-    }
-
-    fetchUserData()
-  }, [router, supabase])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
+function Sidebar({ userEmail, userRole, loading, handleSignOut, pathname, router }: any) {
   const isActive = (path: string) => pathname === path
 
   return (
@@ -191,26 +152,87 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const router = useRouter()
+  const pathname = usePathname()
+  const supabase = createClient()
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      setUserId(user.id)
+      setUserEmail(user.email || 'Usuario')
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profile && profile.role) {
+        setUserRole(profile.role.toLowerCase())
+      } else {
+        setUserRole('admin')
+      }
+
+      setLoading(false)
+    }
+
+    fetchUserData()
+  }, [router, supabase])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  // Hook de alertas en tiempo real
+  const { alerts, dismissAlert } = useRealtimeAlerts(userId)
+
   return (
     <div className="flex min-h-screen bg-[#0b0f17] text-slate-100 overflow-hidden">
       
-      {/* 1. SIDEBAR INTACTO A LA IZQUIERDA */}
-      <Sidebar />
+      {/* 1. SIDEBAR */}
+      <Sidebar 
+        userEmail={userEmail}
+        userRole={userRole}
+        loading={loading}
+        handleSignOut={handleSignOut}
+        pathname={pathname}
+        router={router}
+      />
 
       {/* 2. PANEL DERECHO CON MARCA DE AGUA */}
       <main className="relative flex-1 min-h-screen overflow-y-auto">
-        
-        {/* 🖼️ MARCA DE AGUA EXCLUSIVA EN EL PANEL DERECHO */}
         <div 
-          className="absolute inset-0 bg-cover bg-center opacity-[0.55] grayscale pointer-events-none mix-blend-luminosity z-0"
+          className="absolute inset-0 bg-cover bg-center opacity-[0.65] grayscale pointer-events-none mix-blend-luminosity z-0"
           style={{ backgroundImage: "url('/instalaciones.png')" }}
         />
-
-        {/* CONTENIDO REAL DE LAS VISTAS */}
         <div className="relative z-10">
           {children}
         </div>
 
+        {/* 3. ALERTAS FLOTANTES EN TIEMPO REAL (POP-UPS) */}
+        <div className="fixed bottom-5 right-5 z-50 space-y-3 pointer-events-auto">
+          {alerts.map((alert) => (
+            <RealtimeToast
+              key={alert.id}
+              id={alert.id}
+              sender={alert.sender_email}
+              subject={alert.subject}
+              onClose={dismissAlert}
+            />
+          ))}
+        </div>
       </main>
 
     </div>
