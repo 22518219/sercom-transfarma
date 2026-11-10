@@ -1,5 +1,4 @@
-import Sidebar from "@/components/Sidebar"; // Si tu Sidebar está en components
-// O si tu Sidebar está en dashboard/page.tsx, usa: import Sidebar from "./page";
+import Sidebar from "../../components/Sidebar";
 
 export default function DashboardLayout({
   children,
@@ -9,10 +8,10 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-screen bg-[#0b0f17] text-slate-100 overflow-hidden">
       
-      {/* 1. SIDEBAR INTACTO A LA IZQUIERDA (Sin marca de agua) */}
+      {/* 1. SIDEBAR INTACTO A LA IZQUIERDA */}
       <Sidebar />
 
-      {/* 2. PANEL DERECHO / CONTENIDO PRINCIPAL (Con marca de agua en el fondo) */}
+      {/* 2. PANEL DERECHO CON MARCA DE AGUA */}
       <main className="relative flex-1 min-h-screen overflow-y-auto">
         
         {/* 🖼️ MARCA DE AGUA EXCLUSIVA EN EL PANEL DERECHO */}
@@ -21,7 +20,7 @@ export default function DashboardLayout({
           style={{ backgroundImage: "url('/instalaciones.png')" }}
         />
 
-        {/* CONTENIDO DE LAS PÁGINAS (DASHBOARD, CARTERA, BITÁCORA, ETC.) */}
+        {/* CONTENIDO DE LAS PÁGINAS */}
         <div className="relative z-10">
           {children}
         </div>
