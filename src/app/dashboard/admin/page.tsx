@@ -114,6 +114,7 @@ export default function AdminPortfolioPage() {
     setCreatingExec(true)
 
     try {
+      // Petición limpia a la API Route sin pasar por el Auth del navegador
       const response = await fetch('/api/admin/create-executive', {
         method: 'POST',
         headers: {
@@ -130,7 +131,6 @@ export default function AdminPortfolioPage() {
 
       if (!response.ok) {
         alert('Error al crear ejecutiva: ' + (data.error || 'Ocurrió un error inesperado.'))
-        setCreatingExec(false)
         return
       }
 
@@ -138,6 +138,8 @@ export default function AdminPortfolioPage() {
       setExecName('')
       setExecEmail('')
       setExecPassword('')
+      
+      // Recargar la lista de ejecutivas
       fetchData()
     } catch (err: any) {
       alert('Error de conexión al crear ejecutiva: ' + err.message)

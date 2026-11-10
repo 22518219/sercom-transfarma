@@ -5,20 +5,21 @@ import { createClient } from '@supabase/supabase-js'
 export async function POST(request: Request) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
-        { error: 'Faltan variables de entorno de Supabase.' },
+        { error: 'Faltan variables de entorno en el servidor.' },
         { status: 500 }
       )
     }
 
-    // Inicialización dentro del handler para evitar fallos durante 'npm run build'
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+    // Cliente del servidor con sesión totalmente deshabilitada para no interferir con la sesión del Admin
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
+        detectSessionInUrl: false,
       },
     })
 
@@ -26,13 +27,13 @@ export async function POST(request: Request) {
 
     if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'Todos los campos (email, contraseña, nombre) son requeridos.' },
+        { error: 'Todos los campos son obligatorios (nombre, correo y contraseña).' },
         { status: 400 }
       )
     }
 
-    // Crear usuario en Auth de Supabase
-    const { data: userData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    // 1. Crear usuario directamente en Supabase Auth mediante admin API
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -43,16 +44,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    if (!userData.user) {
-      return NextResponse.json({ error: 'No se pudo crear el usuario en Auth.' }, { status: 500 })
+    if (!authData.user) {
+      return NextResponse.json({ error: 'No se pudo generar el usuario.' }, { status: 500 })
     }
 
-    // Insertar el perfil con rol 'ejecutiva' en public.profiles
+    // 2. Registrar el perfil en public.profiles
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert([
         {
-          id: userData.user.id,
+          id: authData.user.id,
           email,
           name,
           role: 'ejecutiva',
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ message: 'Ejecutiva creada exitosamente' }, { status: 200 })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Error interno del servidor' }, { status: 500 })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Error del servidor' }, { status: 500 })
   }
 }
