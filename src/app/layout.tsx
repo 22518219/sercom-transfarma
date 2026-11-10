@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar"; // Ajusta esta ruta si tu Sidebar está en otra carpeta
+import Sidebar from "./dashboard/page";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           
           {/* 🖼️ MARCA DE AGUA SUTIL (public/instalaciones.png) */}
           <div 
-            className="absolute inset-0 bg-cover bg-center opacity-[0.06] grayscale pointer-events-none mix-blend-luminosity z-0"
+            className="absolute inset-0 bg-cover bg-center opacity-[0.09] grayscale pointer-events-none mix-blend-luminosity z-0"
             style={{ backgroundImage: "url('/instalaciones.png')" }}
           />
 
