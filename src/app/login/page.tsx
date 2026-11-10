@@ -38,9 +38,12 @@ export default function LoginPage() {
         {/* LOGO SERCOM */}
         <div className="flex flex-col items-center text-center space-y-3">
           <div className="bg-white p-3 rounded-xl shadow-md w-full max-w-[280px] flex justify-center items-center">
-            <img
+            <Image
               src="/sercom-logo.png"
               alt="Sercom Servicios Comerciales"
+              width={260}
+              height={70}
+              priority
               className="h-auto max-h-16 w-auto object-contain"
             />
           </div>
@@ -54,7 +57,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* FORMULARIO DE INGRESO DE CREDANCIALES */}
+        {/* FORMULARIO DE INGRESO DE CREDENCIALES */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
