@@ -360,6 +360,7 @@ export default function LogsPage() {
           client_id: selectedClient,
           user_id: user?.id,
           executive_name: currentUserName,
+          channel: 'Correo / Teléfono', // Campo agregado para satisfacer el NOT NULL
           detail: clientDetail.trim()
         }
       ])
