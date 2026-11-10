@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Sidebar from "./dashboard/page";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,33 +17,14 @@ export const metadata: Metadata = {
   description: "Plataforma Operativa Sercom Transfarma",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex bg-[#0b0f17] text-slate-100 overflow-hidden">
-        
-        {/* 1. MENÚ LATERAL (SIDEBAR A LA IZQUIERDA, SIN MARCA DE AGUA) */}
-        <Sidebar />
-
-        {/* 2. PANEL CONTENEDOR DERECHO (CON MARCA DE AGUA) */}
-        <main className="relative flex-1 min-h-screen overflow-y-auto">
-          
-          {/* 🖼️ MARCA DE AGUA SUTIL (public/instalaciones.png) */}
-          <div 
-            className="absolute inset-0 bg-cover bg-center opacity-[0.09] grayscale pointer-events-none mix-blend-luminosity z-0"
-            style={{ backgroundImage: "url('/instalaciones.png')" }}
-          />
-
-          {/* CONTENIDO PRINCIPAL DE LAS VISTAS */}
-          <div className="relative z-10">
-            {children}
-          </div>
-
-        </main>
-
+      <body className="min-h-full bg-[#0b0f17] text-slate-100">
+        {children}
       </body>
     </html>
   );
