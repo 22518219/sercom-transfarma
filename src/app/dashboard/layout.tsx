@@ -202,7 +202,7 @@ export default function DashboardLayout({
         
         {/* 🖼️ MARCA DE AGUA EXCLUSIVA EN EL PANEL DERECHO */}
         <div 
-          className="absolute inset-0 bg-cover bg-center opacity-[0.12] grayscale pointer-events-none mix-blend-luminosity z-0"
+          className="absolute inset-0 bg-cover bg-center opacity-[0.2] grayscale pointer-events-none mix-blend-luminosity z-0"
           style={{ backgroundImage: "url('/instalaciones.png')" }}
         />
 
