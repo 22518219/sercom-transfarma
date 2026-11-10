@@ -17,6 +17,7 @@ interface Client {
   company_name: string
   contact_person?: string
   email?: string
+  phone?: string
 }
 
 interface UserClient {
@@ -31,12 +32,13 @@ export default function AdminPage() {
   const [assignments, setAssignments] = useState<UserClient[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Formulario Registro de Usuario
-  const [fullName, setFullName] = useState('')
-  const [userEmail, setUserEmail] = useState('')
-  const [userPassword, setUserPassword] = useState('')
-  const [role, setRole] = useState<'ejecutiva' | 'admin'>('ejecutiva')
-  const [isRegistering, setIsRegistering] = useState(false)
+  // Formulario Registro de Nuevo Mandante / Cliente
+  const [rut, setRut] = useState('')
+  const [companyName, setCompanyName] = useState('')
+  const [contactPerson, setContactPerson] = useState('')
+  const [clientEmail, setClientEmail] = useState('')
+  const [clientPhone, setClientPhone] = useState('')
+  const [isCreatingClient, setIsCreatingClient] = useState(false)
 
   // Asignación Múltiple
   const [selectedExec, setSelectedExec] = useState('')
@@ -100,47 +102,41 @@ export default function AdminPage() {
     setLoading(false)
   }
 
-  // REGISTRO DE USUARIO VÍA API ROUTE
-  const handleRegisterUser = async (e: React.FormEvent) => {
+  // CREAR NUEVO MANDANTE / CLIENTE
+  const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!fullName || !userEmail || !userPassword) {
-      alert('Por favor completa todos los campos requeridos.')
+    if (!companyName.trim()) {
+      alert('Por favor ingresa al menos la Razón Social / Nombre de la empresa.')
       return
     }
 
-    setIsRegistering(true)
+    setIsCreatingClient(true)
 
-    try {
-      const response = await fetch('/api/admin/create-executive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userEmail.trim(),
-          password: userPassword.trim(),
-          name: fullName.trim(),
-          role: role,
-        }),
-      })
+    const { error } = await supabase
+      .from('clients')
+      .insert([
+        {
+          rut: rut.trim(),
+          company_name: companyName.trim(),
+          contact_person: contactPerson.trim(),
+          email: clientEmail.trim(),
+          phone: clientPhone.trim(),
+        },
+      ])
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        alert('Error al crear usuario: ' + (data.error || 'Error inesperado.'))
-        setIsRegistering(false)
-        return
-      }
-
-      alert(`Usuario "${fullName}" creado exitosamente.`)
-      setFullName('')
-      setUserEmail('')
-      setUserPassword('')
-      setRole('ejecutiva')
+    if (error) {
+      alert('Error al registrar mandante: ' + error.message)
+    } else {
+      alert(`Mandante "${companyName}" registrado exitosamente.`)
+      setRut('')
+      setCompanyName('')
+      setContactPerson('')
+      setClientEmail('')
+      setClientPhone('')
       fetchData()
-    } catch (err: any) {
-      alert('Error de conexión: ' + err.message)
-    } finally {
-      setIsRegistering(false)
     }
+
+    setIsCreatingClient(false)
   }
 
   // MANEJO DE CHECKBOXES SELECCIÓN MÚLTIPLE
@@ -250,8 +246,8 @@ export default function AdminPage() {
         {/* ENCABEZADO */}
         <div className="flex justify-between items-center bg-[#141923] p-4 rounded-xl border border-slate-800 shadow-md">
           <div>
-            <h1 className="text-lg font-bold text-white tracking-tight">Administración de Usuarios y Asignación de Cartera</h1>
-            <p className="text-xs text-slate-400">Panel de control de cuentas corporativas y distribución de mandantes</p>
+            <h1 className="text-lg font-bold text-white tracking-tight">Administración de Mandantes y Asignación de Cartera</h1>
+            <p className="text-xs text-slate-400">Panel de registro de empresas corporativas y distribución de cartera</p>
           </div>
           <button
             onClick={() => router.push('/dashboard')}
@@ -264,67 +260,76 @@ export default function AdminPage() {
         {/* SECCIÓN DE FORMULARIOS SUPERIORES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* FORMULARIO 1: CREAR USUARIOS */}
+          {/* FORMULARIO 1: REGISTRO DE NUEVO MANDANTE */}
           <div className="bg-[#141923] p-5 rounded-xl border border-slate-800 shadow-lg space-y-4">
-            <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-              1. Nuevo Registro de Ejecutiva / Usuario
+            <h2 className="text-xs font-bold text-blue-400 uppercase tracking-wider">
+              1. Nuevo Registro de Mandante / Cliente
             </h2>
 
-            <form onSubmit={handleRegisterUser} className="space-y-3.5">
+            <form onSubmit={handleCreateClient} className="space-y-3.5">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre Completo *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">RUT Empresa / Mandante</label>
+                <input
+                  type="text"
+                  placeholder="76.xxx.xxx-k (Opcional)"
+                  value={rut}
+                  onChange={(e) => setRut(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre Empresa / Mandante *</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ej: María González"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
+                  placeholder="Ej: Laboratorio Biofarma SpA"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Correo Electrónico *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre de Contacto</label>
                 <input
-                  type="email"
-                  required
-                  placeholder="mgonzalez@transfarma.cl"
-                  value={userEmail}
-                  onChange={(e) => setUserEmail(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
+                  type="text"
+                  placeholder="Ej: Juan Pérez"
+                  value={contactPerson}
+                  onChange={(e) => setContactPerson(e.target.value)}
+                  className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Contraseña *</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={userPassword}
-                  onChange={(e) => setUserPassword(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Perfil / Rol *</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as 'ejecutiva' | 'admin')}
-                  className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-amber-500"
-                >
-                  <option value="ejecutiva">Ejecutiva</option>
-                  <option value="admin">Administrador</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Correo Electrónico</label>
+                  <input
+                    type="email"
+                    placeholder="contacto@empresa.cl"
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                    className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Teléfono</label>
+                  <input
+                    type="text"
+                    placeholder="+56 9 1234 5678"
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
               </div>
 
               <button
                 type="submit"
-                disabled={isRegistering}
-                className="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition disabled:opacity-50"
+                disabled={isCreatingClient}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition disabled:opacity-50"
               >
-                {isRegistering ? 'Guardando Usuario...' : '+ Registrar Usuario'}
+                {isCreatingClient ? 'Guardando Mandante...' : '+ Guardar Mandante'}
               </button>
             </form>
           </div>
@@ -376,7 +381,7 @@ export default function AdminPage() {
                   </label>
                 </div>
 
-                <div className="max-h-48 overflow-y-auto bg-[#1a2232] border border-slate-700/80 rounded-lg p-2 space-y-1">
+                <div className="max-h-52 overflow-y-auto bg-[#1a2232] border border-slate-700/80 rounded-lg p-2 space-y-1">
                   {clients.length === 0 ? (
                     <p className="text-[11px] text-slate-500 p-2 text-center">No hay clientes cargados.</p>
                   ) : (
@@ -415,7 +420,7 @@ export default function AdminPage() {
 
         </div>
 
-        {/* TABLA RESUMEN DE CARTERA (UBICADA JUSTO DEBAJO DEL CUADRO DE ASIGNACIÓN) */}
+        {/* TABLA RESUMEN DE CARTERA */}
         <div className="bg-[#141923] p-6 rounded-xl border border-slate-800 shadow-lg space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800 pb-4">
             <div>
