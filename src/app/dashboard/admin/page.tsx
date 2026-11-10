@@ -15,9 +15,7 @@ interface Client {
   id: string
   rut: string
   company_name: string
-  contact_person: string
-  email: string
-  phone: string
+  contact_person?: string
 }
 
 interface UserClient {
@@ -26,28 +24,16 @@ interface UserClient {
   client_id: string
 }
 
-export default function AdminPortfolioPage() {
+export default function AdminPage() {
   const [executives, setExecutives] = useState<Profile[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [assignments, setAssignments] = useState<UserClient[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Formulario nuevo usuario / ejecutiva
-  const [execName, setExecName] = useState('')
-  const [execEmail, setExecEmail] = useState('')
-  const [execPassword, setExecPassword] = useState('')
-  const [creatingExec, setCreatingExec] = useState(false)
-
-  // Formulario nuevo cliente
-  const [rut, setRut] = useState('')
-  const [companyName, setCompanyName] = useState('')
-  const [contactPerson, setContactPerson] = useState('')
-  const [clientEmail, setClientEmail] = useState('')
-  const [clientPhone, setClientPhone] = useState('')
-
-  // Selección para asignación
+  // Asignación Múltiple
   const [selectedExec, setSelectedExec] = useState('')
-  const [selectedClient, setSelectedClient] = useState('')
+  const [selectedClients, setSelectedClients] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
@@ -59,14 +45,13 @@ export default function AdminPortfolioPage() {
   const fetchData = async () => {
     setLoading(true)
 
-    // 1. Validar sesión activa
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       router.push('/login')
       return
     }
 
-    // 2. Verificar rol en la base de datos
+    // Verificar si es Admin
     const { data: currentProfile } = await supabase
       .from('profiles')
       .select('role')
@@ -79,19 +64,19 @@ export default function AdminPortfolioPage() {
       return
     }
 
-    // 3. Cargar Ejecutivas
+    // Cargar perfiles de ejecutivas
     const { data: execsData } = await supabase
       .from('profiles')
       .select('*')
       .eq('role', 'ejecutiva')
 
-    // 4. Cargar Clientes
+    // Cargar clientes
     const { data: clientsData } = await supabase
       .from('clients')
       .select('*')
       .order('company_name', { ascending: true })
 
-    // 5. Cargar Asignaciones
+    // Cargar asignaciones vigentes
     const { data: assignData } = await supabase
       .from('user_clients')
       .select('*')
@@ -103,359 +88,179 @@ export default function AdminPortfolioPage() {
     setLoading(false)
   }
 
-  // Registrar usuario mediante API Route (Mantiene la sesión de Admin activa)
-  const handleCreateExecutive = async (e: React.FormEvent) => {
+  // Marcar / Desmarcar Todos
+  const handleSelectAllClients = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedClients(clients.map((c) => c.id))
+    } else {
+      setSelectedClients([])
+    }
+  }
+
+  // Toggle Checkbox individual
+  const handleToggleClient = (clientId: string) => {
+    setSelectedClients((prev) =>
+      prev.includes(clientId)
+        ? prev.filter((id) => id !== clientId)
+        : [...prev, clientId]
+    )
+  }
+
+  // Guardar asignación múltiple
+  const handleAssignMultipleClients = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!execEmail || !execPassword || !execName) {
-      alert('Por favor completa todos los campos.')
+    if (!selectedExec || selectedClients.length === 0) {
+      alert('Selecciona una ejecutiva y al menos un cliente/mandante.')
       return
     }
 
-    setCreatingExec(true)
+    setIsSubmitting(true)
 
     try {
-      const response = await fetch('/api/admin/create-executive', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: execEmail,
-          password: execPassword,
-          name: execName,
-          role: 'ejecutiva'
-        }),
-      })
+      // 1. Eliminar asignaciones anteriores de los clientes seleccionados
+      await supabase
+        .from('user_clients')
+        .delete()
+        .in('client_id', selectedClients)
 
-      const data = await response.json()
+      // 2. Insertar lote para la ejecutiva seleccionada
+      const newAssignments = selectedClients.map((clientId) => ({
+        user_id: selectedExec,
+        client_id: clientId,
+      }))
 
-      if (!response.ok) {
-        alert('Error al crear ejecutiva: ' + (data.error || 'Ocurrió un error.'))
-        return
+      const { error } = await supabase
+        .from('user_clients')
+        .insert(newAssignments)
+
+      if (error) {
+        alert('Error al asignar cartera: ' + error.message)
+      } else {
+        alert(`¡Éxito! Se asignaron ${selectedClients.length} mandantes correctamente.`)
+        setSelectedClients([])
+        setSelectedExec('')
+        fetchData()
       }
-
-      alert(`Ejecutiva "${execName}" creada con éxito.`)
-      
-      // Resetear campos del formulario local
-      setExecName('')
-      setExecEmail('')
-      setExecPassword('')
-
-      // Cargar nuevamente la tabla de datos de la base de datos (SIN refrescar la sesión auth)
-      fetchData()
-
     } catch (err: any) {
-      alert('Error de conexión: ' + err.message)
+      alert('Error inesperado: ' + err.message)
     } finally {
-      setCreatingExec(false)
-    }
-  }
-
-  // Registrar un nuevo cliente
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const { error } = await supabase
-      .from('clients')
-      .insert([
-        {
-          rut,
-          company_name: companyName,
-          contact_person: contactPerson,
-          email: clientEmail,
-          phone: clientPhone,
-        },
-      ])
-
-    if (error) {
-      alert('Error al registrar cliente: ' + error.message)
-    } else {
-      alert('Cliente creado exitosamente')
-      setRut('')
-      setCompanyName('')
-      setContactPerson('')
-      setClientEmail('')
-      setClientPhone('')
-      fetchData()
-    }
-  }
-
-  // Asignar o reasignar cliente a ejecutiva
-  const handleAssignClient = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedExec || !selectedClient) {
-      alert('Selecciona una ejecutiva y un cliente')
-      return
-    }
-
-    // Eliminar asignación previa si existe
-    await supabase
-      .from('user_clients')
-      .delete()
-      .eq('client_id', selectedClient)
-
-    // Crear nueva asignación
-    const { error } = await supabase
-      .from('user_clients')
-      .insert([{ user_id: selectedExec, client_id: selectedClient }])
-
-    if (error) {
-      alert('Error al asignar cartera: ' + error.message)
-    } else {
-      alert('Cartera actualizada con éxito')
-      setSelectedExec('')
-      setSelectedClient('')
-      fetchData()
+      setIsSubmitting(false)
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <p className="text-gray-600 font-medium">Cargando Módulo de Administración...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#0b0f17]">
+        <p className="text-slate-400 text-xs uppercase tracking-wider">Cargando Administración...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 text-gray-900">
+    <div className="min-h-screen bg-[#0b0f17] text-slate-100 p-6 font-sans space-y-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        
+
         {/* Encabezado */}
-        <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow">
+        <div className="flex justify-between items-center bg-[#141923] p-4 rounded-xl border border-slate-800 shadow-md">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Administración de Cartera</h1>
-            <p className="text-sm text-gray-500">Gestión de ejecutivas, clientes y asignaciones</p>
+            <h1 className="text-lg font-bold text-white">Administración y Asignación de Cartera</h1>
+            <p className="text-xs text-slate-400">Asigna uno o varios mandantes a una ejecutiva</p>
           </div>
           <button
             onClick={() => router.push('/dashboard')}
-            className="bg-gray-600 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded transition"
+            className="bg-[#1a2232] hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 py-2 rounded-lg border border-slate-700 transition"
           >
-            Volver al Dashboard
+            ← Volver al Dashboard
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Formulario 1: Crear Nueva Ejecutiva */}
-          <div className="bg-white p-6 rounded-lg shadow space-y-4">
-            <h2 className="text-lg font-bold text-indigo-600">Crear Ejecutiva</h2>
-            <form onSubmit={handleCreateExecutive} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700">Nombre Completo</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="María González"
-                  value={execName}
-                  onChange={(e) => setExecName(e.target.value)}
-                  className="w-full p-2 border rounded text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700">Correo Electrónico</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="mgonzalez@transfarma.cl"
-                  value={execEmail}
-                  onChange={(e) => setExecEmail(e.target.value)}
-                  className="w-full p-2 border rounded text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700">Contraseña</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={execPassword}
-                  onChange={(e) => setExecPassword(e.target.value)}
-                  className="w-full p-2 border rounded text-sm"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={creatingExec}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded text-sm transition disabled:opacity-50"
-              >
-                {creatingExec ? 'Guardando...' : 'Crear Ejecutiva'}
-              </button>
-            </form>
+        {/* Panel de Asignación Múltiple */}
+        <div className="bg-[#141923] p-6 rounded-xl border border-slate-800 shadow-lg space-y-5 max-w-2xl mx-auto">
+          <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+            <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+              Asignación Múltiple de Mandantes
+            </h2>
+            <span className="text-[11px] text-slate-400 font-medium">
+              {selectedClients.length} de {clients.length} seleccionados
+            </span>
           </div>
 
-          {/* Formulario 2: Registrar Nuevo Cliente */}
-          <div className="bg-white p-6 rounded-lg shadow space-y-4">
-            <h2 className="text-lg font-bold text-blue-600">Registrar Cliente</h2>
-            <form onSubmit={handleCreateClient} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700">RUT Empresa</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="76.xxx.xxx-k"
-                  value={rut}
-                  onChange={(e) => setRut(e.target.value)}
-                  className="w-full p-2 border rounded text-sm"
-                />
-              </div>
+          <form onSubmit={handleAssignMultipleClients} className="space-y-4">
+            
+            {/* 1. Seleccionar Ejecutiva */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                1. Seleccionar Ejecutiva Destino *
+              </label>
+              <select
+                value={selectedExec}
+                onChange={(e) => setSelectedExec(e.target.value)}
+                className="w-full bg-[#1a2232] border border-slate-700/80 text-slate-100 text-xs rounded-lg p-3 focus:outline-none focus:border-emerald-500"
+                required
+              >
+                <option value="">-- Selecciona una ejecutiva --</option>
+                {executives.map((exec) => (
+                  <option key={exec.id} value={exec.id}>
+                    {exec.name} ({exec.email})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700">Nombre Empresa</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Farmacias Ejemplo SpA"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full p-2 border rounded text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700">Contacto</label>
-                <input
-                  type="text"
-                  placeholder="Juan Pérez"
-                  value={contactPerson}
-                  onChange={(e) => setContactPerson(e.target.value)}
-                  className="w-full p-2 border rounded text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700">Correo</label>
+            {/* 2. Lista de Mandantes con Checkboxes */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  2. Seleccionar Mandantes / Clientes *
+                </label>
+                <label className="text-[10px] text-indigo-400 font-bold cursor-pointer flex items-center space-x-1.5 hover:text-indigo-300">
                   <input
-                    type="email"
-                    placeholder="contacto@cliente.cl"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    className="w-full p-2 border rounded text-sm"
+                    type="checkbox"
+                    onChange={handleSelectAllClients}
+                    checked={selectedClients.length === clients.length && clients.length > 0}
+                    className="rounded border-slate-700 bg-[#1a2232] text-emerald-500 focus:ring-0"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700">Teléfono</label>
-                  <input
-                    type="text"
-                    placeholder="+56 9 1234 5678"
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    className="w-full p-2 border rounded text-sm"
-                  />
-                </div>
+                  <span>Marcar Todos</span>
+                </label>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded text-sm transition"
-              >
-                Guardar Cliente
-              </button>
-            </form>
-          </div>
-
-          {/* Formulario 3: Asignación de Cartera */}
-          <div className="bg-white p-6 rounded-lg shadow space-y-4">
-            <h2 className="text-lg font-bold text-green-600">Asignar Cartera</h2>
-            <form onSubmit={handleAssignClient} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Seleccionar Cliente</label>
-                <select
-                  value={selectedClient}
-                  onChange={(e) => setSelectedClient(e.target.value)}
-                  className="w-full p-2 border rounded text-sm bg-white"
-                  required
-                >
-                  <option value="">-- Selecciona un cliente --</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.company_name} ({c.rut})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Seleccionar Ejecutiva</label>
-                <select
-                  value={selectedExec}
-                  onChange={(e) => setSelectedExec(e.target.value)}
-                  className="w-full p-2 border rounded text-sm bg-white"
-                  required
-                >
-                  <option value="">-- Selecciona una ejecutiva --</option>
-                  {executives.map((exec) => (
-                    <option key={exec.id} value={exec.id}>
-                      {exec.name} ({exec.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded text-sm transition"
-              >
-                Asignar Cliente a Ejecutiva
-              </button>
-            </form>
-          </div>
-
-        </div>
-
-        {/* Tabla Resumen de Clientes y Ejecutivas */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Listado de Clientes y Ejecutivas Asignadas</h2>
-          
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-semibold text-gray-600">RUT</th>
-                  <th className="px-4 py-2 text-left font-semibold text-gray-600">Empresa</th>
-                  <th className="px-4 py-2 text-left font-semibold text-gray-600">Contacto</th>
-                  <th className="px-4 py-2 text-left font-semibold text-gray-600">Ejecutiva Asignada</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
+              {/* Contenedor escroleable de clientes */}
+              <div className="max-h-60 overflow-y-auto bg-[#1a2232] border border-slate-700/80 rounded-lg p-2 space-y-1">
                 {clients.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="text-center py-4 text-gray-500">
-                      No hay clientes registrados aún.
-                    </td>
-                  </tr>
+                  <p className="text-xs text-slate-500 p-2 text-center">No hay clientes cargados en la base de datos.</p>
                 ) : (
-                  clients.map((client) => {
-                    const currentAssignment = assignments.find((a) => a.client_id === client.id)
-                    const assignedExec = executives.find((e) => e.id === currentAssignment?.user_id)
-
-                    return (
-                      <tr key={client.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 font-medium">{client.rut}</td>
-                        <td className="px-4 py-2">{client.company_name}</td>
-                        <td className="px-4 py-2">{client.contact_person || '-'}</td>
-                        <td className="px-4 py-2">
-                          {assignedExec ? (
-                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium">
-                              {assignedExec.name || assignedExec.email}
-                            </span>
-                          ) : (
-                            <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">
-                              Sin Asignar
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })
+                  clients.map((c) => (
+                    <label
+                      key={c.id}
+                      className={`flex items-center space-x-2.5 p-2 rounded-lg text-xs cursor-pointer transition ${
+                        selectedClients.includes(c.id)
+                          ? 'bg-emerald-950/60 border border-emerald-700/60 text-emerald-200'
+                          : 'hover:bg-[#121824] text-slate-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedClients.includes(c.id)}
+                        onChange={() => handleToggleClient(c.id)}
+                        className="rounded border-slate-700 text-emerald-500 focus:ring-0"
+                      />
+                      <span className="font-mono text-indigo-400 text-[10px]">[{c.rut || 'S/R'}]</span>
+                      <span className="font-medium truncate">{c.company_name}</span>
+                    </label>
+                  ))
                 )}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-4 rounded-lg text-xs shadow-md transition disabled:opacity-50 tracking-wide"
+            >
+              {isSubmitting ? 'Guardando Asignación...' : `+ Asignar (${selectedClients.length}) Mandantes a la Ejecutiva`}
+            </button>
+          </form>
         </div>
 
       </div>
