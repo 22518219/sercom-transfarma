@@ -22,46 +22,41 @@ export async function POST(request: Request) {
     const cleanSender = sender.trim().toLowerCase();
 
     // 1. Buscar el client_id correspondiente al remitente en la tabla `clients`
-    const { data: clientData, error: clientError } = await supabaseAdmin
-      .from('clients')
-      .select('id, company_name')
-      .ilike('email', `%${cleanSender}%`)
-      .maybeSingle();
+    // 1. Buscar cliente con ILIKE para coincidencia parcial
+const { data: clientData } = await supabaseAdmin
+  .from('clients')
+  .select('id')
+  .ilike('email', `%${cleanSender}%`)
+  .maybeSingle();
 
-    if (clientError) {
-      console.error('Error al buscar cliente:', clientError);
-    }
+let clientId = clientData?.id || null;
+let executiveId: string | null = null;
 
-    let executiveId: string | null = null;
-    let clientId: string | null = clientData?.id || null;
+// 2. Buscar ejecutiva si se encontró cliente
+if (clientId) {
+  const { data: relationData } = await supabaseAdmin
+    .from('user_clients')
+    .select('user_id')
+    .eq('client_id', clientId)
+    .maybeSingle();
 
-    // 2. Si existe el cliente, buscar la ejecutiva asignada en `user_clients`
-    if (clientId) {
-      const { data: relationData, error: relationError } = await supabaseAdmin
-        .from('user_clients')
-        .select('user_id')
-        .eq('client_id', clientId)
-        .maybeSingle();
+  if (relationData) {
+    executiveId = relationData.user_id;
+  }
+}
 
-      if (relationError) {
-        console.error('Error al buscar ejecutiva asignada:', relationError);
-      } else if (relationData) {
-        executiveId = relationData.user_id;
-      }
-    }
-
-    // 3. Guardar el correo entrante en la tabla `emails`
-    const { data: emailRecord, error: emailError } = await supabaseAdmin
-      .from('emails')
-      .insert({
-        sender_email: cleanSender,
-        recipient_email: recipient ? recipient.trim().toLowerCase() : null,
-        subject: subject || '(Sin asunto)',
-        body: text || html || '',
-        executive_id: executiveId,
-      })
-      .select('id')
-      .single();
+// 3. Insertar el correo
+const { data: emailRecord, error: emailError } = await supabaseAdmin
+  .from('emails')
+  .insert({
+    sender_email: cleanSender,
+    recipient_email: recipient ? recipient.trim().toLowerCase() : null,
+    subject: subject || '(Sin asunto)',
+    body: text || html || '',
+    executive_id: executiveId, // Si es nulo o inválido, asegura que en la tabla no obligue a tener FK estricta sin NULL
+  })
+  .select('id')
+  .single();
 
     if (emailError) {
       console.error('Error insertando correo en tabla emails:', emailError);
