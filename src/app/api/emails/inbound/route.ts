@@ -1,72 +1,109 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-// Cliente Supabase con Service Role para saltar RLS en escrituras de Webhook
+// Inicializar cliente de Supabase con service_role para omitir RLS en el webhook backend
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+);
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const payload = await req.json()
+    const body = await request.json();
+    const { sender, recipient, subject, text, html } = body;
 
-    // Adaptar según el proveedor de Webhook (ej. SendGrid, Mailgun, etc.)
-    const sender = payload.from || payload.sender
-    const recipient = payload.to || payload.recipient
-    const subject = payload.subject || 'Sin Asunto'
-    const bodyText = payload.text || payload['body-plain'] || ''
-    const messageId = payload.messageId || payload['Message-Id'] || `msg_${Date.now()}`
+    if (!sender) {
+      return NextResponse.json(
+        { error: 'El campo sender (remitente) es requerido.' },
+        { status: 400 }
+      );
+    }
 
-    // 1. Buscar si el remitente coincide con un cliente registrado
-    const { data: client } = await supabaseAdmin
+    const cleanSender = sender.trim().toLowerCase();
+
+    // 1. Buscar el client_id correspondiente al remitente en la tabla `clients`
+    const { data: clientData, error: clientError } = await supabaseAdmin
       .from('clients')
-      .select('id')
-      .eq('email', sender)
-      .maybeSingle()
+      .select('id, company_name')
+      .eq('email', cleanSender)
+      .maybeSingle();
 
-    let executiveId = null
+    if (clientError) {
+      console.error('Error al buscar cliente:', clientError);
+    }
 
-    // 2. Si se encuentra al cliente, obtener la ejecutiva asignada
-    if (client) {
-      const { data: userClient } = await supabaseAdmin
+    let executiveId: string | null = null;
+    let clientId: string | null = clientData?.id || null;
+
+    // 2. Si existe el cliente, buscar la ejecutiva asignada en `user_clients`
+    if (clientId) {
+      const { data: relationData, error: relationError } = await supabaseAdmin
         .from('user_clients')
         .select('user_id')
-        .eq('client_id', client.id)
-        .maybeSingle()
+        .eq('client_id', clientId)
+        .maybeSingle();
 
-      if (userClient) {
-        executiveId = userClient.user_id
+      if (relationError) {
+        console.error('Error al buscar ejecutiva asignada:', relationError);
+      } else if (relationData) {
+        executiveId = relationData.user_id;
       }
     }
 
-    // 3. Registrar el correo entrante en la base de datos
-    const { data: newEmail, error } = await supabaseAdmin
+    // 3. Guardar el correo entrante en la tabla `emails`
+    const { data: emailRecord, error: emailError } = await supabaseAdmin
       .from('emails')
-      .insert([
-        {
-          message_id: messageId,
-          client_id: client?.id || null,
-          executive_id: executiveId,
-          sender_email: sender,
-          recipient_email: recipient,
-          subject: subject,
-          body_text: bodyText,
-          status: 'unread',
-          received_at: new Date().toISOString()
-        }
-      ])
-      .select()
-      .single()
+      .insert({
+        sender_email: cleanSender,
+        recipient_email: recipient ? recipient.trim().toLowerCase() : null,
+        subject: subject || '(Sin asunto)',
+        body: text || html || '',
+        executive_id: executiveId,
+      })
+      .select('id')
+      .single();
 
-    if (error) {
-      console.error('Error guardando el email:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (emailError) {
+      console.error('Error insertando correo en tabla emails:', emailError);
+      return NextResponse.json(
+        { error: 'Error al registrar el correo.' },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true, emailId: newEmail.id })
-  } catch (err: any) {
-    console.error('Inbound Error:', err)
-    return NextResponse.json({ error: 'Error procesando el correo' }, { status: 500 })
+    // 4. NUEVO: Registrar la gestión automáticamente en la tabla `gestiones`
+    if (executiveId && clientId) {
+      const { error: gestionError } = await supabaseAdmin
+        .from('gestiones') // Si tu tabla se llama distinto (ej: management_logs), actualiza este nombre
+        .insert({
+          user_id: executiveId,
+          client_id: clientId,
+          type: 'CORREO_RECIBIDO',
+          channel: 'EMAIL',
+          detail: `[Correo Entrante] ${subject || 'Sin asunto'}\n\n${text || ''}`.trim(),
+          source_email_id: emailRecord.id,
+          created_at: new Date().toISOString(),
+        });
+
+      if (gestionError) {
+        console.error('Error al registrar la gestión automática:', gestionError);
+        // No bloqueamos la respuesta ya que el correo y la notificación en tiempo real igual se guardaron
+      }
+    }
+
+    // 5. Retornar éxito
+    return NextResponse.json({
+      success: true,
+      emailId: emailRecord.id,
+      executiveId: executiveId,
+      gestionCreated: Boolean(executiveId && clientId),
+    });
+
+  } catch (error: any) {
+    console.error('Error crítico en /api/emails/inbound:', error);
+    return NextResponse.json(
+      { error: 'Internal Server Error', details: error.message },
+      { status: 500 }
+    );
   }
 }
