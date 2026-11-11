@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const { data: clientData, error: clientError } = await supabaseAdmin
       .from('clients')
       .select('id, company_name')
-      .eq('email', cleanSender)
+      .ilike('email', `%${cleanSender}%`)
       .maybeSingle();
 
     if (clientError) {
