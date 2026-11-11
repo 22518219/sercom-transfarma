@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         sender_email: cleanSender,
         recipient_email: recipient ? recipient.trim().toLowerCase() : null,
         subject: subject || '(Sin asunto)',
-        body: text || html || '',
+        text: text || html || '',
         executive_id: executiveId,
       })
       .select('id')
