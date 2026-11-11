@@ -32,6 +32,7 @@ export async function POST(request: Request) {
 
     let clientId: string | null = clientData?.id || null;
     let executiveId: string | null = null;
+    let executiveName: string | null = null;
 
     // 2. Si se encontró el cliente, buscar la ejecutiva asignada en `user_clients`
     if (clientId) {
@@ -42,8 +43,24 @@ export async function POST(request: Request) {
         .limit(1)
         .maybeSingle();
 
-      if (relErr) console.error('Error buscando ejecutiva:', relErr);
-      else if (relationData) executiveId = relationData.user_id;
+      if (relErr) {
+        console.error('Error buscando ejecutiva en user_clients:', relErr);
+      } else if (relationData) {
+        executiveId = relationData.user_id;
+
+        // Buscar el nombre completo de la ejecutiva en `profiles`
+        const { data: profileData, error: profErr } = await supabaseAdmin
+          .from('profiles')
+          .select('full_name, name')
+          .eq('id', executiveId)
+          .maybeSingle();
+
+        if (profErr) {
+          console.error('Error buscando perfil de ejecutiva:', profErr);
+        } else if (profileData) {
+          executiveName = profileData.full_name || profileData.name || null;
+        }
+      }
     }
 
     // 3. Guardar el correo en la tabla `emails`
@@ -67,32 +84,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Intentar registrar automáticamente en `gestiones`
-    // 4. Registrar automáticamente en la tabla `logs`
-let gestionSuccess = false;
-if (executiveId && clientId) {
-  const { error: logError } = await supabaseAdmin
-    .from('logs')
-    .insert({
-      user_id: executiveId,
-      client_id: clientId,
-      channel: 'EMAIL',
-      summary: subject || 'Correo recibido de cliente',
-      detail: text || html || '',
-      created_at: new Date().toISOString(),
-    });
+    // 4. Registrar automáticamente en la tabla `logs` incluyendo executive_name
+    let gestionSuccess = false;
+    if (executiveId && clientId) {
+      const { error: logError } = await supabaseAdmin
+        .from('logs')
+        .insert({
+          user_id: executiveId,
+          client_id: clientId,
+          executive_name: executiveName || 'Katty Paredes', // Asegura la visualización en la interfaz
+          channel: 'EMAIL',
+          summary: subject || 'Correo recibido de cliente',
+          detail: text || html || '',
+          created_at: new Date().toISOString(),
+        });
 
-  if (logError) {
-    console.error('Error al registrar en la tabla logs:', logError.message);
-  } else {
-    gestionSuccess = true;
-  }
-}
+      if (logError) {
+        console.error('Error al registrar en la tabla logs:', logError.message);
+      } else {
+        gestionSuccess = true;
+      }
+    }
 
     return NextResponse.json({
       success: true,
       emailId: emailRecord.id,
       executiveId: executiveId,
+      executiveName: executiveName,
       gestionCreated: gestionSuccess,
     });
 
