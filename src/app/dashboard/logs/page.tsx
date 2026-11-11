@@ -128,7 +128,7 @@ export default function LogsPage() {
 
   const formatCode = (code?: number) => code ? String(code).padStart(3, '0') : '---'
 
-  // FUNCIÓN DESCARGA EXCEL MULTI-PESTAÑA (.XLSX)
+  // FUNCIÓN DESCARGA EXCEL MULTI-PESTAÑA (.XLS)
   const handleExportExcel = () => {
     if (logs.length === 0 && usendRequests.length === 0) {
       alert('No hay datos disponibles para exportar.')
@@ -265,7 +265,7 @@ export default function LogsPage() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', `Bitacora_Completa_Sercom_${new Date().toISOString().split('T')[0]}.xlsx`)
+    link.setAttribute('download', `Bitacora_Completa_Sercom_${new Date().toISOString().split('T')[0]}.xls`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -457,7 +457,7 @@ export default function LogsPage() {
               className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-lg border border-emerald-600/60 shadow flex items-center space-x-1.5 transition"
             >
               <span>📊</span>
-              <span>Descargar Reporte Excel (.xlsx)</span>
+              <span>Descargar Reporte Excel (.xls)</span>
             </button>
 
             <button
