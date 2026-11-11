@@ -203,7 +203,7 @@ export default function LogsPage() {
    </Row>
    ${logs.map(l => `
    <Row ss:Height="20">
-    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${new Date(l.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${new Date(l.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Data></Cell>
     <Cell ss:StyleID="TableCellCode"><Data ss:Type="String">${formatCode(l.client?.code)}</Data></Cell>
     <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(l.client?.company_name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
     <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(l.executive_name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
@@ -763,15 +763,21 @@ export default function LogsPage() {
                   ) : (
                     logs.map((log) => (
                       <tr key={log.id} className="hover:bg-[#1a2232]/50 transition">
-                        <td className="px-4 py-2.5 font-mono text-slate-400">
-                          {new Date(log.created_at).toLocaleDateString('es-CL')}
+                        <td className="px-4 py-2.5 font-mono text-slate-400 whitespace-nowrap">
+                          {new Date(log.created_at).toLocaleString('es-CL', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </td>
                         <td className="px-4 py-2.5 font-bold text-indigo-400">
                           [{formatCode(log.client?.code)}] {log.client?.company_name || 'Cliente'}
                         </td>
                         <td className="px-4 py-2.5 font-bold text-white">{log.executive_name}</td>
                         <td className="px-4 py-2.5 text-slate-300">{log.detail}</td>
-                        <td className="px-4 py-2.5 text-right space-x-2">
+                        <td className="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                           {log.file_url && (
                             <a
                               href={log.file_url}
@@ -829,12 +835,12 @@ export default function LogsPage() {
                   ) : (
                     usendRequests.map((req) => (
                       <tr key={req.id} className="hover:bg-[#1a2232]/50 transition">
-                        <td className="px-4 py-2.5 font-mono text-emerald-400">
+                        <td className="px-4 py-2.5 font-mono text-emerald-400 whitespace-nowrap">
                           {req.request_date} {req.request_time}
                         </td>
                         <td className="px-4 py-2.5 font-bold text-white">{req.executive_name}</td>
                         <td className="px-4 py-2.5 text-slate-300">{req.email_subject || 'Sin asunto'}</td>
-                        <td className="px-4 py-2.5 text-right space-x-2">
+                        <td className="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                           {req.file_url && (
                             <a
                               href={req.file_url}
