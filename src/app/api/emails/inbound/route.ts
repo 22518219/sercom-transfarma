@@ -68,26 +68,26 @@ export async function POST(request: Request) {
     }
 
     // 4. Intentar registrar automáticamente en `gestiones`
-    let gestionSuccess = false;
-    if (executiveId && clientId) {
-      const { error: gestionError } = await supabaseAdmin
-        .from('gestiones')
-        .insert({
-          user_id: executiveId,
-          client_id: clientId,
-          type: 'CORREO_RECIBIDO',
-          channel: 'EMAIL',
-          detail: `[Correo Entrante] ${subject || 'Sin asunto'}\n\n${text || ''}`.trim(),
-          source_email_id: emailRecord.id,
-          created_at: new Date().toISOString(),
-        });
+    // 4. Registrar automáticamente en la tabla `logs`
+let gestionSuccess = false;
+if (executiveId && clientId) {
+  const { error: logError } = await supabaseAdmin
+    .from('logs')
+    .insert({
+      user_id: executiveId,
+      client_id: clientId,
+      channel: 'EMAIL',
+      summary: subject || 'Correo recibido de cliente',
+      detail: text || html || '',
+      created_at: new Date().toISOString(),
+    });
 
-      if (gestionError) {
-        console.error('Aviso: No se pudo insertar en gestiones:', gestionError.message);
-      } else {
-        gestionSuccess = true;
-      }
-    }
+  if (logError) {
+    console.error('Error al registrar en la tabla logs:', logError.message);
+  } else {
+    gestionSuccess = true;
+  }
+}
 
     return NextResponse.json({
       success: true,
