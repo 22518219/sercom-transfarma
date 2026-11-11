@@ -62,6 +62,20 @@ export default function LogsPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  // Función formateadora a estilo YYYY-MM-DD HH:mm:ss
+  const formatDateTimeISO = (isoString: string) => {
+    if (!isoString) return '---'
+    const d = new Date(isoString)
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    const seconds = String(d.getSeconds()).padStart(2, '0')
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  }
+
   useEffect(() => {
     const now = new Date()
     setUsendDate(now.toISOString().split('T')[0])
@@ -180,7 +194,7 @@ export default function LogsPage() {
  <!-- PESTAÑA 1: GESTIONES POR EJECUTIVA -->
  <Worksheet ss:Name="Gestiones por Ejecutiva">
   <Table ss:ExpandedColumnCount="6">
-   <Column ss:Width="120"/>
+   <Column ss:Width="140"/>
    <Column ss:Width="90"/>
    <Column ss:Width="200"/>
    <Column ss:Width="160"/>
@@ -203,7 +217,7 @@ export default function LogsPage() {
    </Row>
    ${logs.map(l => `
    <Row ss:Height="20">
-    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${new Date(l.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Data></Cell>
+    <Cell ss:StyleID="TableCell"><Data ss:Type="String">${formatDateTimeISO(l.created_at)}</Data></Cell>
     <Cell ss:StyleID="TableCellCode"><Data ss:Type="String">${formatCode(l.client?.code)}</Data></Cell>
     <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(l.client?.company_name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
     <Cell ss:StyleID="TableCell"><Data ss:Type="String">${(l.executive_name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
@@ -763,14 +777,8 @@ export default function LogsPage() {
                   ) : (
                     logs.map((log) => (
                       <tr key={log.id} className="hover:bg-[#1a2232]/50 transition">
-                        <td className="px-4 py-2.5 font-mono text-slate-400 whitespace-nowrap">
-                          {new Date(log.created_at).toLocaleString('es-CL', {
-                             year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                        <td className="px-4 py-2.5 font-mono text-emerald-400 whitespace-nowrap">
+                          {formatDateTimeISO(log.created_at)}
                         </td>
                         <td className="px-4 py-2.5 font-bold text-indigo-400">
                           [{formatCode(log.client?.code)}] {log.client?.company_name || 'Cliente'}
