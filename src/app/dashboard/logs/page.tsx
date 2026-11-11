@@ -765,9 +765,9 @@ export default function LogsPage() {
                       <tr key={log.id} className="hover:bg-[#1a2232]/50 transition">
                         <td className="px-4 py-2.5 font-mono text-slate-400 whitespace-nowrap">
                           {new Date(log.created_at).toLocaleString('es-CL', {
-                            day: '2-digit',
+                             year: 'numeric',
                             month: '2-digit',
-                            year: 'numeric',
+                            day: '2-digit',
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
