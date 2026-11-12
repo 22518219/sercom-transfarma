@@ -187,7 +187,7 @@ export default function LogsPage() {
     <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
    </Borders>
-   <Font ss:FontName="Courier New" ss:Size="10" ss:Color="#2563EB" ss:Bold="1"/>
+   <Font ss:FontName="Courier New" ss:Size="10" ss:Color="#0284C7" ss:Bold="1"/>
   </Style>
  </Styles>
 
@@ -433,20 +433,22 @@ export default function LogsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0b0f17]">
-        <p className="text-slate-400 font-medium text-xs tracking-wider uppercase">Cargando Bitácora...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#0a1322]">
+        <p className="text-cyan-400 font-medium text-xs tracking-wider uppercase animate-pulse">Cargando Bitácora...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f17] text-slate-200 p-6 font-sans space-y-8">
+    <div className="min-h-screen bg-[#0a1322] text-slate-100 p-6 font-sans space-y-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* ENCABEZADO CON BOTÓN DE EXCEL Y VOLVER */}
-        <div className="flex justify-between items-center bg-[#121824] p-4 rounded-xl border border-slate-800/60 shadow-lg">
+        {/* ENCABEZADO OCEAN SLATE CON BOTÓN DE EXCEL Y VOLVER */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#101c30] p-4 rounded-xl border border-cyan-900/40 shadow-xl">
           <div>
-            <h1 className="text-base font-bold text-white tracking-tight">Bitácora de Gestiones y Control Usend</h1>
+            <h1 className="text-base font-bold text-cyan-400 tracking-wide uppercase">
+              Bitácora de Gestiones y Control Usend
+            </h1>
             <p className="text-xs text-slate-400">Registro diario de interacciones corporativas y solicitudes a Usend</p>
           </div>
           
@@ -454,7 +456,7 @@ export default function LogsPage() {
             {/* BOTÓN DE DESCARGA EXCEL MULTI-PESTAÑA */}
             <button
               onClick={handleExportExcel}
-              className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-lg border border-emerald-600/60 shadow flex items-center space-x-1.5 transition"
+              className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-bold px-3.5 py-2 rounded-lg border border-emerald-500/40 shadow flex items-center space-x-1.5 transition"
             >
               <span>📊</span>
               <span>Descargar Reporte Excel (.xls)</span>
@@ -462,7 +464,7 @@ export default function LogsPage() {
 
             <button
               onClick={() => router.push('/dashboard')}
-              className="bg-[#1a2232] hover:bg-slate-700 text-slate-300 text-xs font-semibold px-4 py-2 rounded-lg border border-slate-700/60 transition"
+              className="bg-[#182942] hover:bg-[#203657] text-cyan-300 text-xs font-semibold px-4 py-2 rounded-lg border border-cyan-800/50 transition"
             >
               ← Volver al Dashboard
             </button>
@@ -473,19 +475,21 @@ export default function LogsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* PARTE 1: REGISTRO DE GESTIONES POR CLIENTE */}
-          <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
-            <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center space-x-2">
-              <span>1️⃣</span>
-              <span>Registro de Gestión por Ejecutiva</span>
+          <div className="bg-[#111e33] p-5 rounded-xl border border-cyan-900/40 shadow-xl space-y-4">
+            <h2 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span>
+              <span>1. Registro de Gestión por Ejecutiva</span>
             </h2>
 
             <form onSubmit={handleSaveClientLog} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Seleccionar Cliente / Mandante *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Seleccionar Cliente / Mandante *
+                </label>
                 <select
                   value={selectedClient}
                   onChange={(e) => setSelectedClient(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 transition"
                   required
                 >
                   <option value="">-- Selecciona un cliente --</option>
@@ -498,20 +502,22 @@ export default function LogsPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Breve Detalle de la Gestión *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Breve Detalle de la Gestión *
+                </label>
                 <textarea
                   rows={3}
                   placeholder="Escribe un resumen conciso de lo gestionado con el cliente..."
                   value={clientDetail}
                   onChange={(e) => setClientDetail(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500 resize-none"
+                  className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 resize-none transition"
                   required
                 />
               </div>
 
               {/* ENLACE DIRECTO DE GMAIL */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                   Enlace Directo de Gmail (Opcional)
                 </label>
                 <input
@@ -519,13 +525,13 @@ export default function LogsPage() {
                   placeholder="https://mail.google.com/mail/u/0/#search/..."
                   value={clientGmailUrl}
                   onChange={(e) => setClientGmailUrl(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 transition"
                 />
               </div>
 
               {/* ARRASTRAR Y SOLTAR ARCHIVO */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                   Adjuntar o Arrastrar Correo / PDF (.eml, .msg, .pdf)
                 </label>
                 <div
@@ -534,10 +540,10 @@ export default function LogsPage() {
                   onDrop={handleClientDrop}
                   className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition ${
                     isDraggingClient
-                      ? 'border-indigo-400 bg-indigo-950/20'
+                      ? 'border-cyan-400 bg-cyan-950/30'
                       : clientFile
-                      ? 'border-indigo-500/80 bg-[#1a2232]'
-                      : 'border-slate-700/80 hover:border-slate-600 bg-[#121824]'
+                      ? 'border-cyan-400/80 bg-[#172742]'
+                      : 'border-cyan-900/50 hover:border-cyan-700 bg-[#0d1726]'
                   }`}
                 >
                   <input
@@ -552,7 +558,7 @@ export default function LogsPage() {
                     {clientFile ? (
                       <div className="space-y-1">
                         <span className="text-xl">📧</span>
-                        <p className="text-xs font-bold text-indigo-400 truncate">{clientFile.name}</p>
+                        <p className="text-xs font-bold text-cyan-400 truncate">{clientFile.name}</p>
                         <p className="text-[10px] text-slate-400">{(clientFile.size / 1024).toFixed(1)} KB - Listo para adjuntar</p>
                       </div>
                     ) : (
@@ -569,7 +575,7 @@ export default function LogsPage() {
               <button
                 type="submit"
                 disabled={uploadingClientFile}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition disabled:opacity-50"
+                className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold py-2.5 px-4 rounded-lg text-xs shadow-lg shadow-cyan-500/20 transition disabled:opacity-50 uppercase tracking-wide"
               >
                 {uploadingClientFile ? 'Subiendo Archivo...' : '+ Registrar Gestión de Cliente'}
               </button>
@@ -577,51 +583,56 @@ export default function LogsPage() {
           </div>
 
           {/* PARTE 2: REGISTRO DE SOLICITUDES A USEND */}
-          <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-4">
-            <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-2">
-              <span>2️⃣</span>
-              <span>Registro de Solicitudes a USEND</span>
-            </h2>
+          <div className="bg-[#111e33] p-5 rounded-xl border border-cyan-900/40 shadow-xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center space-x-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+                <span>2. Registro de Solicitudes a USEND</span>
+              </h2>
+              <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1.5">
+                Activo <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+              </span>
+            </div>
 
             <form onSubmit={handleSaveUsendRequest} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha *</label>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Fecha *</label>
                   <input
                     type="date"
                     value={usendDate}
                     onChange={(e) => setUsendDate(e.target.value)}
-                    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 transition"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Hora *</label>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hora *</label>
                   <input
                     type="time"
                     value={usendTime}
                     onChange={(e) => setUsendTime(e.target.value)}
-                    className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 transition"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Asunto / Referencia del Correo *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Asunto / Referencia del Correo *</label>
                 <input
                   type="text"
                   placeholder="Ej: Solicitud de retiro urgente pedido #4589"
                   value={usendSubject}
                   onChange={(e) => setUsendSubject(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 transition"
                   required
                 />
               </div>
 
               {/* ENLACE DIRECTO DE GMAIL */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                   Enlace Directo de Gmail (Opcional)
                 </label>
                 <input
@@ -629,13 +640,13 @@ export default function LogsPage() {
                   placeholder="https://mail.google.com/mail/u/0/#search/..."
                   value={usendGmailUrl}
                   onChange={(e) => setUsendGmailUrl(e.target.value)}
-                  className="w-full bg-[#1a2232] border border-slate-700/60 text-slate-200 text-xs rounded-lg p-2.5 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 transition"
                 />
               </div>
 
               {/* ARRASTRAR Y SOLTAR USEND */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                   Arrastrar Correo / Comprobante (.eml, .msg, .pdf)
                 </label>
                 <div
@@ -644,10 +655,10 @@ export default function LogsPage() {
                   onDrop={handleUsendDrop}
                   className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition ${
                     isDraggingUsend
-                      ? 'border-emerald-400 bg-emerald-950/20'
+                      ? 'border-emerald-400 bg-emerald-950/30'
                       : usendFile
-                      ? 'border-emerald-500/80 bg-[#1a2232]'
-                      : 'border-slate-700/80 hover:border-slate-600 bg-[#121824]'
+                      ? 'border-emerald-400/80 bg-[#172742]'
+                      : 'border-cyan-900/50 hover:border-cyan-700 bg-[#0d1726]'
                   }`}
                 >
                   <input
@@ -682,7 +693,7 @@ export default function LogsPage() {
               <button
                 type="submit"
                 disabled={uploadingUsendFile}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow transition disabled:opacity-50"
+                className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold py-2.5 px-4 rounded-lg text-xs shadow-lg shadow-cyan-500/20 transition disabled:opacity-50 uppercase tracking-wide"
               >
                 {uploadingUsendFile ? 'Subiendo Archivo...' : '+ Registrar Solicitud Usend'}
               </button>
@@ -692,25 +703,25 @@ export default function LogsPage() {
         </div>
 
         {/* PARTE 3: DASHBOARD ESTADÍSTICO Y REGISTROS */}
-        <div className="bg-[#141923] p-5 rounded-xl border border-slate-800/80 shadow-lg space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/60 pb-4">
+        <div className="bg-[#111e33] p-5 rounded-xl border border-cyan-900/40 shadow-xl space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-cyan-900/40 pb-4">
             <div>
-              <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center space-x-2">
-                <span>3️⃣</span>
-                <span>Gráfica Estadísticas y Métricas</span>
+              <h2 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center space-x-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span>
+                <span>3. Gráfica Estadísticas y Métricas</span>
               </h2>
               <p className="text-[11px] text-slate-400">Consolidado de actividad y solicitudes registradas</p>
             </div>
 
-            <div className="flex items-center space-x-1 bg-[#1a2232] p-1 rounded-lg border border-slate-700/60">
+            <div className="flex items-center space-x-1 bg-[#0d1726] p-1 rounded-lg border border-cyan-900/50">
               {(['day', 'week', 'month', 'quarter', 'semester', 'year'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTimeFilter(t)}
                   className={`text-[10px] font-bold px-3 py-1.5 rounded-md capitalize transition ${
                     timeFilter === t
-                      ? 'bg-amber-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-cyan-400 text-slate-950 shadow'
+                      : 'text-slate-400 hover:text-cyan-300'
                   }`}
                 >
                   {t === 'day' ? 'Día' : t === 'week' ? 'Semana' : t === 'month' ? 'Mes' : t === 'quarter' ? 'Trimestre' : t === 'semester' ? 'Semestre' : 'Año'}
@@ -720,8 +731,8 @@ export default function LogsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-            <div className="bg-[#121824] p-6 rounded-xl border border-slate-800/60 text-center">
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block mb-1">
+            <div className="bg-[#0d1726] p-6 rounded-xl border border-cyan-900/40 text-center">
+              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block mb-1">
                 Solicitudes Usend ({timeFilter.toUpperCase()})
               </span>
               <span className="text-5xl font-extrabold text-white">
@@ -730,21 +741,21 @@ export default function LogsPage() {
               <p className="text-[11px] text-slate-400 mt-2">Registros en el periodo seleccionado</p>
             </div>
 
-            <div className="md:col-span-2 bg-[#121824] p-6 rounded-xl border border-slate-800/60 space-y-4">
+            <div className="md:col-span-2 bg-[#0d1726] p-6 rounded-xl border border-cyan-900/40 space-y-4">
               <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-slate-300">Resumen General de Actividad</span>
-                <span className="font-mono text-amber-400">{logs.length} Gestiones / {usendRequests.length} Usend</span>
+                <span className="font-bold text-slate-200">Resumen General de Actividad</span>
+                <span className="font-mono text-cyan-400">{logs.length} Gestiones / {usendRequests.length} Usend</span>
               </div>
 
-              <div className="w-full bg-slate-800 h-6 rounded-full overflow-hidden flex">
+              <div className="w-full bg-[#172742] h-6 rounded-full overflow-hidden flex border border-cyan-900/40">
                 <div
-                  className="bg-indigo-500 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-white"
+                  className="bg-cyan-400 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-extrabold text-slate-950"
                   style={{ width: `${(logs.length / Math.max(1, logs.length + usendRequests.length)) * 100}%` }}
                 >
                   Gestiones ({logs.length})
                 </div>
                 <div
-                  className="bg-emerald-500 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-white"
+                  className="bg-emerald-400 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-extrabold text-slate-950"
                   style={{ width: `${(usendRequests.length / Math.max(1, logs.length + usendRequests.length)) * 100}%` }}
                 >
                   Usend ({usendRequests.length})
@@ -755,43 +766,44 @@ export default function LogsPage() {
 
           {/* TABLA 1: HISTORIAL DE GESTIONES POR CLIENTE */}
           <div className="space-y-3 pt-2">
-            <h3 className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Historial de Gestiones por Cliente</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300 divide-y divide-slate-800/80">
-                <thead className="bg-[#1a2232] text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+            <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-wider">Historial de Gestiones por Cliente</h3>
+            <div className="overflow-x-auto rounded-lg border border-cyan-900/40">
+              <table className="w-full text-left text-xs text-slate-200 divide-y divide-cyan-900/40">
+                <thead className="bg-[#182942] text-cyan-300 font-bold uppercase text-[10px] tracking-wider">
                   <tr>
-                    <th className="px-4 py-2.5">Fecha</th>
-                    <th className="px-4 py-2.5">Cliente</th>
-                    <th className="px-4 py-2.5">Ejecutiva</th>
-                    <th className="px-4 py-2.5">Detalle</th>
-                    <th className="px-4 py-2.5 text-right">Adjunto / Gmail</th>
+                    <th className="px-4 py-3">Fecha y Hora</th>
+                    <th className="px-4 py-3">Cliente</th>
+                    <th className="px-4 py-3">Ejecutiva</th>
+                    <th className="px-4 py-3">Detalle</th>
+                    <th className="px-4 py-3 text-right">Adjunto / Gmail</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-cyan-900/30 bg-[#0e192b]">
                   {logs.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-4 text-slate-500">
+                      <td colSpan={5} className="text-center py-6 text-slate-500">
                         No hay gestiones registradas.
                       </td>
                     </tr>
                   ) : (
                     logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-[#1a2232]/50 transition">
-                        <td className="px-4 py-2.5 font-mono text-emerald-400 whitespace-nowrap">
+                      <tr key={log.id} className="hover:bg-[#172742]/70 transition">
+                        <td className="px-4 py-3 font-mono text-emerald-400 whitespace-nowrap">
                           {formatDateTimeISO(log.created_at)}
                         </td>
-                        <td className="px-4 py-2.5 font-bold text-indigo-400">
-                          [{formatCode(log.client?.code)}] {log.client?.company_name || 'Cliente'}
+                        <td className="px-4 py-3 font-bold text-white">
+                          <span className="text-cyan-400 mr-1.5">[{formatCode(log.client?.code)}]</span>
+                          {log.client?.company_name || 'Cliente'}
                         </td>
-                        <td className="px-4 py-2.5 font-bold text-white">{log.executive_name}</td>
-                        <td className="px-4 py-2.5 text-slate-300">{log.detail}</td>
-                        <td className="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
+                        <td className="px-4 py-3 font-medium text-slate-200">{log.executive_name}</td>
+                        <td className="px-4 py-3 text-slate-300">{log.detail}</td>
+                        <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
                           {log.file_url && (
                             <a
                               href={log.file_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center space-x-1 text-indigo-400 hover:text-indigo-300 bg-indigo-950/40 border border-indigo-800/50 px-2 py-0.5 rounded text-[10px] font-bold transition"
+                              className="inline-flex items-center space-x-1 text-cyan-300 hover:text-white bg-cyan-950/80 border border-cyan-700/60 px-2.5 py-1 rounded text-[10px] font-bold transition"
                             >
                               <span>📎</span>
                               <span>Archivo</span>
@@ -802,7 +814,7 @@ export default function LogsPage() {
                               href={log.gmail_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center space-x-1 text-red-400 hover:text-red-300 bg-red-950/40 border border-red-800/50 px-2 py-0.5 rounded text-[10px] font-bold transition"
+                              className="inline-flex items-center space-x-1 text-white bg-red-500 hover:bg-red-400 px-2.5 py-1 rounded text-[10px] font-bold shadow-sm transition uppercase"
                             >
                               <span>✉️</span>
                               <span>Gmail</span>
@@ -821,40 +833,40 @@ export default function LogsPage() {
           </div>
 
           {/* TABLA 2: HISTORIAL DE SOLICITUDES USEND */}
-          <div className="space-y-3 pt-4 border-t border-slate-800/60">
-            <h3 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Historial de Solicitudes a Usend</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300 divide-y divide-slate-800/80">
-                <thead className="bg-[#1a2232] text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+          <div className="space-y-3 pt-4 border-t border-cyan-900/40">
+            <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Historial de Solicitudes a Usend</h3>
+            <div className="overflow-x-auto rounded-lg border border-cyan-900/40">
+              <table className="w-full text-left text-xs text-slate-200 divide-y divide-cyan-900/40">
+                <thead className="bg-[#182942] text-emerald-300 font-bold uppercase text-[10px] tracking-wider">
                   <tr>
-                    <th className="px-4 py-2.5">Fecha / Hora</th>
-                    <th className="px-4 py-2.5">Ejecutiva</th>
-                    <th className="px-4 py-2.5">Asunto / Referencia</th>
-                    <th className="px-4 py-2.5 text-right">Adjunto / Gmail</th>
+                    <th className="px-4 py-3">Fecha / Hora</th>
+                    <th className="px-4 py-3">Ejecutiva</th>
+                    <th className="px-4 py-3">Asunto / Referencia</th>
+                    <th className="px-4 py-3 text-right">Adjunto / Gmail</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-cyan-900/30 bg-[#0e192b]">
                   {usendRequests.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="text-center py-4 text-slate-500">
+                      <td colSpan={4} className="text-center py-6 text-slate-500">
                         No hay solicitudes registradas a Usend.
                       </td>
                     </tr>
                   ) : (
                     usendRequests.map((req) => (
-                      <tr key={req.id} className="hover:bg-[#1a2232]/50 transition">
-                        <td className="px-4 py-2.5 font-mono text-emerald-400 whitespace-nowrap">
+                      <tr key={req.id} className="hover:bg-[#172742]/70 transition">
+                        <td className="px-4 py-3 font-mono text-emerald-400 whitespace-nowrap">
                           {req.request_date} {req.request_time}
                         </td>
-                        <td className="px-4 py-2.5 font-bold text-white">{req.executive_name}</td>
-                        <td className="px-4 py-2.5 text-slate-300">{req.email_subject || 'Sin asunto'}</td>
-                        <td className="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
+                        <td className="px-4 py-3 font-bold text-white">{req.executive_name}</td>
+                        <td className="px-4 py-3 text-slate-300">{req.email_subject || 'Sin asunto'}</td>
+                        <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
                           {req.file_url && (
                             <a
                               href={req.file_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center space-x-1 text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 px-2 py-0.5 rounded text-[10px] font-bold transition"
+                              className="inline-flex items-center space-x-1 text-emerald-300 hover:text-white bg-emerald-950/80 border border-emerald-700/60 px-2.5 py-1 rounded text-[10px] font-bold transition"
                             >
                               <span>📎</span>
                               <span>Archivo</span>
@@ -865,7 +877,7 @@ export default function LogsPage() {
                               href={req.gmail_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center space-x-1 text-red-400 hover:text-red-300 bg-red-950/40 border border-red-800/50 px-2 py-0.5 rounded text-[10px] font-bold transition"
+                              className="inline-flex items-center space-x-1 text-white bg-red-500 hover:bg-red-400 px-2.5 py-1 rounded text-[10px] font-bold shadow-sm transition uppercase"
                             >
                               <span>✉️</span>
                               <span>Gmail</span>
