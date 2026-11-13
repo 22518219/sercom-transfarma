@@ -10,17 +10,17 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // 1. Extraer campos de manera flexible para soportar múltiples proveedores de webhook
+    // 1. Extraer campos de manera flexible
     const rawSender = body.sender || body.from || body.from_email || body['from-email'] || '';
     const rawRecipient = body.recipient || body.to || body.to_email || body['to-email'] || '';
     const rawSubject = body.subject || body.title || '(Sin asunto)';
     const rawText = body.text || body.body || body['body-plain'] || body.html || '';
-    
-    // Obtener la URL directa si la envía el proveedor o construir un link de búsqueda en Gmail
+
+    // 2. Construir el enlace directo a Gmail usando #all/<ID> para abrir el hilo sin errores de búsqueda
     const messageId = body['message-id'] || body.message_id || body.messageId || '';
     const gmailUrl = body.gmail_url || body.email_url || (
-      messageId 
-        ? `https://mail.google.com/mail/u/0/#search/rfc822msgid%3A${encodeURIComponent(messageId)}`
+      messageId
+        ? `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(messageId)}`
         : `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(rawSubject)}`
     );
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     const cleanSender = (rawSender.match(/<([^>]+)>/)?.[1] || rawSender).trim().toLowerCase();
     const cleanRecipient = (rawRecipient.match(/<([^>]+)>/)?.[1] || rawRecipient).trim().toLowerCase();
 
-    // 2. Buscar el cliente en la tabla `clients` mediante coincidencia parcial (ilike)
+    // 3. Buscar el cliente en la tabla `clients` mediante coincidencia parcial (ilike)
     const { data: clientData, error: clientErr } = await supabaseAdmin
       .from('clients')
       .select('id')
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     let executiveId: string | null = null;
     let executiveName: string | null = null;
 
-    // 3. Si se encontró el cliente, buscar la ejecutiva asignada en `user_clients`
+    // 4. Si se encontró el cliente, buscar la ejecutiva asignada en `user_clients`
     if (clientId) {
       const { data: relationData, error: relErr } = await supabaseAdmin
         .from('user_clients')
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Guardar el correo en la tabla `emails`
+    // 5. Guardar el correo en la tabla `emails`
     const { data: emailRecord, error: emailError } = await supabaseAdmin
       .from('emails')
       .insert({
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. Registrar automáticamente en la tabla `logs` (bitácora de gestiones) con gmail_url y fecha/hora
+    // 6. Registrar automáticamente en la tabla `logs` (bitácora de gestiones) con gmail_url directo
     let gestionSuccess = false;
     if (executiveId && clientId) {
       const { error: logError } = await supabaseAdmin
@@ -107,12 +107,12 @@ export async function POST(request: Request) {
         .insert({
           user_id: executiveId,
           client_id: clientId,
-          executive_name: executiveName || 'Katty Paredes',
+          executive_name: executiveName || 'Ejecutiva',
           channel: 'EMAIL',
           summary: rawSubject,
           detail: rawText,
-          gmail_url: gmailUrl, // Link directo a Gmail
-          created_at: new Date().toISOString(), // Incluye Fecha + Hora en formato ISO
+          gmail_url: gmailUrl,
+          created_at: new Date().toISOString(),
         });
 
       if (logError) {
