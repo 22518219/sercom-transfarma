@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../../lib/supabase'
 
@@ -38,9 +38,14 @@ export default function LogsPage() {
   const [usendRequests, setUsendRequests] = useState<UsendEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [currentUserName, setCurrentUserName] = useState('')
+  const [userRole, setUserRole] = useState<string>('ejecutiva')
 
-  // Parte 1: Estados Registro Cliente
+  // Parte 1: Estados Registro Cliente + Buscador Predictivo
   const [selectedClient, setSelectedClient] = useState('')
+  const [clientSearchQuery, setClientSearchQuery] = useState('')
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
   const [clientDetail, setClientDetail] = useState('')
   const [clientGmailUrl, setClientGmailUrl] = useState('')
   const [clientFile, setClientFile] = useState<File | null>(null)
@@ -61,6 +66,17 @@ export default function LogsPage() {
 
   const router = useRouter()
   const supabase = createClient()
+
+  // Cerrar desplegable predictivo al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowClientDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Función formateadora a estilo YYYY-MM-DD HH:mm:ss
   const formatDateTimeISO = (isoString: string) => {
@@ -100,15 +116,40 @@ export default function LogsPage() {
       .maybeSingle()
 
     const userName = profile?.name || user.email || 'Ejecutiva'
+    const role = profile?.role || 'ejecutiva'
     setCurrentUserName(userName)
+    setUserRole(role)
 
-    const { data: clientsData } = await supabase
-      .from('clients')
-      .select('id, code, company_name')
-      .order('code', { ascending: true })
+    // 1. FILTRO DE MANDANTES SEGÚN PERFIL (ADMIN VE TODO / EJECUTIVA SOLO SU CARTERA)
+    if (role === 'admin') {
+      const { data: allClients } = await supabase
+        .from('clients')
+        .select('id, code, company_name')
+        .order('code', { ascending: true })
 
-    if (clientsData) setAssignedClients(clientsData as Client[])
+      if (allClients) setAssignedClients(allClients as Client[])
+    } else {
+      const { data: userAssignments } = await supabase
+        .from('user_clients')
+        .select('client_id')
+        .eq('user_id', user.id)
 
+      const assignedIds = (userAssignments || []).map((item) => item.client_id)
+
+      if (assignedIds.length > 0) {
+        const { data: myClients } = await supabase
+          .from('clients')
+          .select('id, code, company_name')
+          .in('id', assignedIds)
+          .order('code', { ascending: true })
+
+        if (myClients) setAssignedClients(myClients as Client[])
+      } else {
+        setAssignedClients([])
+      }
+    }
+
+    // 2. CARGAR BITÁCORA DE GESTIONES
     const { data: logsData } = await supabase
       .from('logs')
       .select('*, client:clients(id, code, company_name)')
@@ -116,6 +157,7 @@ export default function LogsPage() {
 
     if (logsData) setLogs(logsData as unknown as LogEntry[])
 
+    // 3. CARGAR SOLICITUDES USEND
     const { data: usendData } = await supabase
       .from('usend_requests')
       .select('*')
@@ -127,6 +169,18 @@ export default function LogsPage() {
   }
 
   const formatCode = (code?: number) => code ? String(code).padStart(3, '0') : '---'
+
+  // FILTRADO PREDICTIVO DE MANDANTES POR NOMBRE O CÓDIGO
+  const predictiveClients = assignedClients.filter((c) => {
+    const query = clientSearchQuery.toLowerCase().trim()
+    if (!query) return true
+    const formattedCode = formatCode(c.code)
+    return (
+      c.company_name.toLowerCase().includes(query) ||
+      formattedCode.includes(query) ||
+      String(c.code || '').includes(query)
+    )
+  })
 
   // FUNCIÓN DESCARGA EXCEL MULTI-PESTAÑA (.XLS)
   const handleExportExcel = () => {
@@ -307,7 +361,7 @@ export default function LogsPage() {
   const handleSaveClientLog = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedClient || !clientDetail.trim()) {
-      alert('Selecciona un cliente e ingresa el detalle de la gestión.')
+      alert('Selecciona un mandante válido de la lista e ingresa el detalle de la gestión.')
       return
     }
 
@@ -352,6 +406,7 @@ export default function LogsPage() {
     } else {
       alert('Gestión de cliente registrada con éxito.')
       setSelectedClient('')
+      setClientSearchQuery('')
       setClientDetail('')
       setClientGmailUrl('')
       setClientFile(null)
@@ -449,7 +504,9 @@ export default function LogsPage() {
             <h1 className="text-base font-bold text-cyan-400 tracking-wide uppercase">
               Bitácora de Gestiones y Control Usend
             </h1>
-            <p className="text-xs text-slate-400">Registro diario de interacciones corporativas y solicitudes a Usend</p>
+            <p className="text-xs text-slate-400">
+              Registro diario • Perfil: <span className="text-cyan-300 font-semibold uppercase">{userRole}</span> ({assignedClients.length} mandantes disponibles)
+            </p>
           </div>
           
           <div className="flex items-center space-x-3">
@@ -482,23 +539,90 @@ export default function LogsPage() {
             </h2>
 
             <form onSubmit={handleSaveClientLog} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Seleccionar Cliente / Mandante *
-                </label>
-                <select
-                  value={selectedClient}
-                  onChange={(e) => setSelectedClient(e.target.value)}
-                  className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 transition"
-                  required
-                >
-                  <option value="">-- Selecciona un cliente --</option>
-                  {assignedClients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      [{formatCode(c.code)}] {c.company_name}
-                    </option>
-                  ))}
-                </select>
+              {/* BUSCADOR PREDICTIVO DE MANDANTES */}
+              <div ref={dropdownRef} className="relative">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Seleccionar Cliente / Mandante *
+                  </label>
+                  {selectedClient && (
+                    <span className="text-[10px] text-emerald-400 font-semibold">
+                      ✓ Mandante seleccionado
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder={
+                      assignedClients.length === 0
+                        ? 'No tienes mandantes asignados...'
+                        : 'Escribe el nombre o código del mandante...'
+                    }
+                    value={clientSearchQuery}
+                    onFocus={() => setShowClientDropdown(true)}
+                    onChange={(e) => {
+                      setClientSearchQuery(e.target.value)
+                      setSelectedClient('')
+                      setShowClientDropdown(true)
+                    }}
+                    className={`w-full bg-[#172742] border text-slate-100 text-xs rounded-lg p-2.5 pr-8 focus:outline-none transition ${
+                      selectedClient
+                        ? 'border-emerald-500/70'
+                        : 'border-cyan-900/60 focus:border-cyan-400'
+                    }`}
+                  />
+
+                  {clientSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClientSearchQuery('')
+                        setSelectedClient('')
+                        setShowClientDropdown(true)
+                      }}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white text-xs"
+                      title="Limpiar búsqueda"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* LISTA DESPLEGABLE PREDICTIVA */}
+                {showClientDropdown && (
+                  <div className="absolute z-30 mt-1 w-full max-h-52 overflow-y-auto bg-[#0e192b] border border-cyan-500/50 rounded-lg shadow-2xl divide-y divide-cyan-900/30">
+                    {predictiveClients.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-400 text-center">
+                        {assignedClients.length === 0
+                          ? 'No tienes mandantes asignados a tu perfil.'
+                          : 'No se encontraron coincidencias para tu búsqueda.'}
+                      </div>
+                    ) : (
+                      predictiveClients.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedClient(c.id)
+                            setClientSearchQuery(`[${formatCode(c.code)}] ${c.company_name}`)
+                            setShowClientDropdown(false)
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-[#1a2e4d] transition ${
+                            selectedClient === c.id ? 'bg-cyan-950/80 text-cyan-300 font-bold' : 'text-slate-200'
+                          }`}
+                        >
+                          <span>
+                            <span className="font-mono text-cyan-400 mr-2">[{formatCode(c.code)}]</span>
+                            {c.company_name}
+                          </span>
+                          {selectedClient === c.id && <span className="text-emerald-400 text-[10px]">✓</span>}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
