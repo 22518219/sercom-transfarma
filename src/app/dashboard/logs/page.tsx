@@ -14,6 +14,7 @@ interface LogEntry {
   id: string
   created_at: string
   client_id: string
+  user_id?: string
   executive_name: string
   detail: string
   file_url?: string
@@ -26,6 +27,7 @@ interface UsendEntry {
   created_at: string
   request_date: string
   request_time: string
+  user_id?: string
   executive_name: string
   email_subject?: string
   file_url?: string
@@ -121,6 +123,8 @@ export default function LogsPage() {
     setUserRole(role)
 
     // 1. FILTRO DE MANDANTES SEGÚN PERFIL (ADMIN VE TODO / EJECUTIVA SOLO SU CARTERA)
+    let assignedIds: string[] = []
+
     if (role === 'admin') {
       const { data: allClients } = await supabase
         .from('clients')
@@ -134,7 +138,7 @@ export default function LogsPage() {
         .select('client_id')
         .eq('user_id', user.id)
 
-      const assignedIds = (userAssignments || []).map((item) => item.client_id)
+      assignedIds = (userAssignments || []).map((item) => item.client_id)
 
       if (assignedIds.length > 0) {
         const { data: myClients } = await supabase
@@ -149,20 +153,30 @@ export default function LogsPage() {
       }
     }
 
-    // 2. CARGAR BITÁCORA DE GESTIONES
-    const { data: logsData } = await supabase
+    // 2. CARGAR BITÁCORA DE GESTIONES (ADMIN VE TODAS / EJECUTIVA SOLO LAS SUYAS)
+    let logsQuery = supabase
       .from('logs')
       .select('*, client:clients(id, code, company_name)')
       .order('created_at', { ascending: false })
 
+    if (role !== 'admin') {
+      logsQuery = logsQuery.eq('user_id', user.id)
+    }
+
+    const { data: logsData } = await logsQuery
     if (logsData) setLogs(logsData as unknown as LogEntry[])
 
-    // 3. CARGAR SOLICITUDES USEND
-    const { data: usendData } = await supabase
+    // 3. CARGAR SOLICITUDES USEND (ADMIN VE TODAS / EJECUTIVA SOLO LAS SUYAS)
+    let usendQuery = supabase
       .from('usend_requests')
       .select('*')
       .order('request_date', { ascending: false })
 
+    if (role !== 'admin') {
+      usendQuery = usendQuery.eq('user_id', user.id)
+    }
+
+    const { data: usendData } = await usendQuery
     if (usendData) setUsendRequests(usendData as UsendEntry[])
 
     setLoading(false)
@@ -646,7 +660,7 @@ export default function LogsPage() {
                 </label>
                 <input
                   type="url"
-                  placeholder="https://mail.google.com/mail/u/0/#search/..."
+                  placeholder="https://mail.google.com/mail/u/0/#all/..."
                   value={clientGmailUrl}
                   onChange={(e) => setClientGmailUrl(e.target.value)}
                   className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 transition"
@@ -761,7 +775,7 @@ export default function LogsPage() {
                 </label>
                 <input
                   type="url"
-                  placeholder="https://mail.google.com/mail/u/0/#search/..."
+                  placeholder="https://mail.google.com/mail/u/0/#all/..."
                   value={usendGmailUrl}
                   onChange={(e) => setUsendGmailUrl(e.target.value)}
                   className="w-full bg-[#172742] border border-cyan-900/60 text-slate-100 text-xs rounded-lg p-2.5 focus:outline-none focus:border-cyan-400 transition"
